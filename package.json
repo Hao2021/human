@@ -2,9 +2,6 @@
   "name": "human-potential-simulator",
   "version": "1.0.0",
   "description": "Secure Serverless function dependencies for Gemini API.",
-  "scripts": {
-    "install": "npm install"
-  },
   "dependencies": {
     "@google/genai": "*" 
   }
