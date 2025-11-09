@@ -104,17 +104,17 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             }
         }
         .input-card-label {
-            font-size: 0.85rem;
-            letter-spacing: 0.08em;
+            font-size: 0.75rem;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: rgba(226, 214, 255, 0.82);
+            color: rgba(226, 214, 255, 0.78);
             font-weight: 600;
         }
         #eventInput {
-            min-height: 220px;
-            font-size: 1.05rem;
+            min-height: 250px;
+            font-size: 1rem;
             line-height: 1.75;
-            padding: 1.1rem 1.25rem;
+            padding: 1.2rem 1.35rem;
             resize: vertical;
             transition: box-shadow 0.35s ease, border-color 0.3s ease, background-color 0.3s ease;
         }
@@ -125,9 +125,9 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             color: rgba(201, 189, 226, 0.6);
         }
         .action-button {
-            font-size: 0.95rem;
-            padding: 0.85rem 1.1rem;
-            border-radius: 0.9rem;
+            font-size: 0.85rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.85rem;
             transition: background-color 0.25s ease, color 0.25s ease, transform 0.35s cubic-bezier(0.33, 1, 0.68, 1), box-shadow 0.35s cubic-bezier(0.33, 1, 0.68, 1);
             will-change: transform, box-shadow;
         }
@@ -138,13 +138,13 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             transform: translateY(1px);
         }
         #runAiCycleBtn.action-button {
-            box-shadow: 0 14px 40px -18px rgba(241, 91, 181, 0.55);
+            box-shadow: 0 12px 34px -18px rgba(241, 91, 181, 0.5);
         }
         #runAiCycleBtn.action-button:hover {
             box-shadow: 0 18px 45px -18px rgba(241, 91, 181, 0.65);
         }
         #runRecommendationBtn.action-button {
-            box-shadow: 0 14px 34px -20px rgba(155, 93, 224, 0.5);
+            box-shadow: 0 12px 30px -20px rgba(155, 93, 224, 0.48);
         }
         #runRecommendationBtn.action-button:hover {
             box-shadow: 0 16px 38px -18px rgba(155, 93, 224, 0.58);
@@ -155,25 +155,33 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 max-width: 600px;
             }
             #eventInput {
-                min-height: 280px;
-                font-size: 1.1rem;
+                min-height: 320px;
+                font-size: 1.05rem;
+                padding: 1.35rem 1.5rem;
             }
             .action-button {
-                font-size: 1rem;
-                padding: 1rem 1.25rem;
+                font-size: 0.9rem;
+                padding: 0.85rem 1.15rem;
             }
         }
         @media (max-width: 640px) {
             #eventInputSection {
-                padding: 2.25rem 1.75rem 2.4rem;
+                padding: 2.4rem 1.5rem 2.6rem;
+                margin-left: -1.25rem;
+                margin-right: -1.25rem;
+                width: calc(100% + 2.5rem);
             }
             #eventInput {
-                min-height: 260px;
-                font-size: 1.1rem;
+                min-height: 320px;
+                font-size: 1.05rem;
+                line-height: 1.8;
             }
             .action-button {
-                font-size: 1rem;
-                padding: 1rem 1.15rem;
+                font-size: 0.8rem;
+                padding: 0.75rem 0.9rem;
+            }
+            #eventInputSection .button-row {
+                gap: 0.75rem;
             }
         }
         .modal-overlay {
@@ -282,7 +290,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 <h3 class="input-card-label mb-3">Describe a new event to simulate</h3>
                 <textarea id="eventInput" class="w-full rounded-lg bg-[#1f0f35] text-gray-100 border border-[#9B5DE0]/50 focus:border-[#F15BB5] outline-none" rows="6" placeholder="Example: 'I received unexpected, harsh criticism at work, but later spent time in nature with my family.'"></textarea>
 
-                <div class="flex flex-col md:flex-row gap-3 md:gap-4 mt-5 items-stretch">
+                <div class="button-row flex flex-col md:flex-row gap-3 md:gap-4 mt-5 items-stretch">
                     <button id="runAiCycleBtn" class="action-button flex-1 bg-[#F15BB5] text-white font-semibold rounded-lg shadow-lg shadow-[#F15BB5]/40 hover:bg-[#E04BA4] transition-colors flex items-center justify-center gap-2 disabled:opacity-75"
                     >
                         <span id="cycleBtnText">🧠 Simulate Event</span>
@@ -739,6 +747,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     return;
                 }
 
+                expandSection(systemStateSection);
+                expandSection(simulationLogContainer);
                 temporarilyShowSections();
                 eventInput.blur();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -819,6 +829,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             });
 
             runRecommendationBtn.addEventListener('click', async () => {
+                expandSection(systemStateSection);
+                expandSection(simulationLogContainer);
                 temporarilyShowSections();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
