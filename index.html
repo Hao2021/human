@@ -40,8 +40,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.35s ease;
-            z-index: 20;
-            backdrop-filter: blur(12px);
+            z-index: 50;
+            backdrop-filter: blur(14px);
         }
         .focus-overlay.active {
             opacity: 1;
@@ -53,38 +53,30 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1), box-shadow 0.45s cubic-bezier(0.33, 1, 0.68, 1), border-color 0.35s ease;
             padding: clamp(1.75rem, 2.5vw + 1rem, 2.75rem);
         }
-        #eventInputSection.focused-card {
-            transform: translateY(-10px) scale(1.015);
-            box-shadow: 0 36px 90px -30px rgba(241, 91, 181, 0.78);
-            border-color: rgba(241, 91, 181, 0.85) !important;
-            z-index: 60;
-        }
-        #eventInputSection.focused-card::after {
-            content: '';
-            position: absolute;
-            inset: -18px;
-            border-radius: 28px;
-            background: radial-gradient(circle at top, rgba(241, 91, 181, 0.35), transparent 65%);
+        .modal-card {
+            position: fixed !important;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.94);
+            width: min(92vw, 760px);
+            max-height: calc(90vh - 3rem);
+            overflow-y: auto;
+            border-radius: 1.5rem;
+            box-shadow: 0 42px 120px rgba(16, 8, 32, 0.7);
+            z-index: 80;
             opacity: 0;
-            transform: translateY(12px);
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            z-index: -1;
+            transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.35s ease;
         }
-        #eventInputSection.focused-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            background: rgba(22, 13, 38, 0.35);
-            backdrop-filter: blur(2px);
-            opacity: 0;
-            transition: opacity 0.35s ease;
-            z-index: -1;
-        }
-        #eventInputSection.focused-card::after,
-        #eventInputSection.focused-card::before {
+        .modal-card.modal-card-active {
+            transform: translate(-50%, -50%) scale(1);
             opacity: 1;
-            transform: translateY(0);
+        }
+        .modal-placeholder {
+            width: 100%;
+            transition: height 0.3s ease;
+        }
+        body.modal-open {
+            overflow: hidden;
         }
         .cta-press {
             animation: ctaPress 0.45s ease;
@@ -183,6 +175,48 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             #eventInputSection .button-row {
                 gap: 0.75rem;
             }
+            .modal-card {
+                width: min(96vw, 640px);
+                max-height: calc(100vh - 2rem);
+            }
+        }
+        .log-close-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(241, 91, 181, 0.4);
+            color: rgba(226, 214, 255, 0.85);
+            background: rgba(36, 21, 58, 0.65);
+            transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
+            backdrop-filter: blur(2px);
+        }
+        .log-close-button:hover {
+            background: rgba(241, 91, 181, 0.22);
+            transform: translateY(-1px);
+        }
+        .log-processing {
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1rem;
+            border-radius: 0.9rem;
+            border: 1px solid rgba(241, 91, 181, 0.28);
+            background: rgba(155, 93, 224, 0.1);
+            box-shadow: inset 0 0 0 1px rgba(36, 21, 58, 0.35);
+        }
+        .log-processing.active {
+            display: flex;
+        }
+        .log-spinner {
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 9999px;
+            border: 3px solid rgba(241, 91, 181, 0.3);
+            border-top-color: rgba(241, 91, 181, 0.95);
+            animation: spin 0.85s linear infinite;
         }
         .modal-overlay {
             position: fixed;
@@ -276,7 +310,17 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
             <!-- Simulation Log (Chat History) -->
             <div id="simulationLogContainer" class="collapsible-section flex-grow bg-[#1f0f35] p-4 md:p-6 rounded-xl shadow-inner border border-[#F15BB5]/30 overflow-y-auto max-h-[60vh] md:max-h-[65vh] min-h-[300px]">
-                <p class="text-lg font-bold text-gray-300 mb-4">Simulation Log</p>
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-lg font-bold text-gray-300">Simulation Log</p>
+                    <button id="closeLogModalBtn" type="button" class="log-close-button hidden" aria-label="Close simulation log view">
+                        <span aria-hidden="true">✕</span>
+                        <span class="sr-only">Close simulation log</span>
+                    </button>
+                </div>
+                <div id="logProcessingOverlay" class="log-processing hidden" role="status" aria-live="polite">
+                    <span class="log-spinner"></span>
+                    <span id="logProcessingText" class="text-sm font-medium text-[#F15BB5]">Analyzing event...</span>
+                </div>
                 <div id="logEntries" class="space-y-4">
                     <!-- Initial Message -->
                     <div id="initialLog" class="p-3 bg-[#2a1b3d] rounded-lg border-l-4 border-[#9B5DE0]">
@@ -365,203 +409,190 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             const logEntries = document.getElementById('logEntries');
             const initialLog = document.getElementById('initialLog');
             const eventInput = document.getElementById('eventInput');
-            const systemStateSection = document.getElementById('systemStateSection');
             const eventInputSection = document.getElementById('eventInputSection');
 
-            const collapsibleSections = [systemStateSection, simulationLogContainer].filter(Boolean);
-            collapsibleSections.forEach(section => {
-                section.dataset.state = 'expanded';
-                section.dataset.animating = 'false';
-                section.setAttribute('aria-hidden', 'false');
-            });
-            let visibilityLockActive = false;
-            let visibilityLockTimeout = null;
-
-            const collapseSection = (section) => {
-                if (!section || section.dataset.animating === 'true' || section.dataset.state === 'collapsed') return;
-
-                section.dataset.animating = 'true';
-                section.dataset.state = 'collapsing';
-                section.setAttribute('aria-hidden', 'true');
-
-                const startHeight = section.scrollHeight;
-                section.style.transition = 'none';
-                section.style.height = `${startHeight}px`;
-                section.style.opacity = '1';
-                section.style.overflow = 'hidden';
-                section.offsetHeight;
-
-                section.style.transition = 'height 0.45s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.4s ease';
-                section.style.height = '0px';
-                section.style.opacity = '0';
-
-                let collapseFallback;
-                const handleTransitionEnd = (event) => {
-                    if (event.propertyName !== 'height') return;
-                    clearTimeout(collapseFallback);
-                    section.style.display = 'none';
-                    section.style.height = '';
-                    section.style.opacity = '';
-                    section.style.transition = '';
-                    section.style.overflow = '';
-                    section.classList.add('hidden');
-                    section.dataset.state = 'collapsed';
-                    section.dataset.animating = 'false';
-                    section.removeEventListener('transitionend', handleTransitionEnd);
-                };
-
-                collapseFallback = setTimeout(() => {
-                    handleTransitionEnd({ propertyName: 'height' });
-                }, 500);
-
-                section.addEventListener('transitionend', handleTransitionEnd);
-            };
-
-            const expandSection = (section) => {
-                if (!section || section.dataset.animating === 'true' || section.dataset.state === 'expanded') return;
-
-                section.dataset.animating = 'true';
-                section.dataset.state = 'expanding';
-                section.classList.remove('hidden');
-                section.style.display = 'block';
-
-                const targetHeight = section.scrollHeight || 1;
-
-                section.style.transition = 'none';
-                section.style.height = '0px';
-                section.style.opacity = '0';
-                section.style.overflow = 'hidden';
-                section.offsetHeight;
-
-                section.style.transition = 'height 0.5s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.45s ease';
-                section.style.height = `${targetHeight}px`;
-                section.style.opacity = '1';
-
-                let expandFallback;
-                const handleTransitionEnd = (event) => {
-                    if (event.propertyName !== 'height') return;
-                    clearTimeout(expandFallback);
-                    section.style.display = '';
-                    section.style.height = '';
-                    section.style.opacity = '';
-                    section.style.transition = '';
-                    section.style.overflow = '';
-                    section.dataset.state = 'expanded';
-                    section.dataset.animating = 'false';
-                    section.setAttribute('aria-hidden', 'false');
-                    section.removeEventListener('transitionend', handleTransitionEnd);
-                };
-
-                expandFallback = setTimeout(() => {
-                    handleTransitionEnd({ propertyName: 'height' });
-                }, 550);
-
-                section.addEventListener('transitionend', handleTransitionEnd);
-            };
-
-            const showCollapsibleSections = () => {
-                requestAnimationFrame(() => {
-                    collapsibleSections.forEach(expandSection);
-                });
-            };
-
-            const hideCollapsibleSections = () => {
-                requestAnimationFrame(() => {
-                    collapsibleSections.forEach(collapseSection);
-                });
-            };
-
             const inputFocusOverlay = document.getElementById('inputFocusOverlay');
+            const closeLogModalBtn = document.getElementById('closeLogModalBtn');
+            const logProcessingOverlay = document.getElementById('logProcessingOverlay');
+            const logProcessingText = document.getElementById('logProcessingText');
 
-            const enterInputFocusMode = () => {
+            const modalConfigs = {
+                input: { element: eventInputSection, placeholder: null },
+                log: { element: simulationLogContainer, placeholder: null }
+            };
+
+            const activeModalTypes = new Set();
+            let preserveOverlayOnBlur = false;
+
+            const activateOverlay = () => {
                 if (inputFocusOverlay) {
                     inputFocusOverlay.classList.add('active');
                 }
-                if (eventInputSection) {
-                    eventInputSection.classList.add('focused-card');
-                }
+                document.body.classList.add('modal-open');
             };
 
-            const leaveInputFocusMode = () => {
+            const deactivateOverlay = () => {
                 if (inputFocusOverlay) {
                     inputFocusOverlay.classList.remove('active');
                 }
-                if (eventInputSection) {
-                    eventInputSection.classList.remove('focused-card');
+                document.body.classList.remove('modal-open');
+            };
+
+            const ensurePlaceholder = (config) => {
+                if (!config || !config.element) return;
+                if (!config.placeholder) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'modal-placeholder';
+                    config.element.parentNode.insertBefore(placeholder, config.element);
+                    config.placeholder = placeholder;
+                }
+                config.placeholder.style.height = `${config.element.offsetHeight}px`;
+            };
+
+            const openModal = (type) => {
+                const config = modalConfigs[type];
+                if (!config || !config.element || config.element.classList.contains('modal-card')) {
+                    return;
+                }
+
+                ensurePlaceholder(config);
+                activateOverlay();
+
+                config.element.classList.add('modal-card');
+                requestAnimationFrame(() => {
+                    config.element.classList.add('modal-card-active');
+                });
+
+                if (type === 'input') {
+                    config.element.setAttribute('role', 'dialog');
+                    config.element.setAttribute('aria-modal', 'true');
+                    config.element.setAttribute('aria-label', 'Describe a new event to simulate');
+                }
+
+                activeModalTypes.add(type);
+            };
+
+            const closeModal = (type, options = {}) => {
+                const { preserveOverlay = false } = options;
+                const config = modalConfigs[type];
+                if (!config || !config.element || !config.element.classList.contains('modal-card')) {
+                    activeModalTypes.delete(type);
+                    if (!preserveOverlay && activeModalTypes.size === 0) {
+                        deactivateOverlay();
+                    }
+                    return;
+                }
+
+                const element = config.element;
+
+                const finalize = () => {
+                    element.classList.remove('modal-card');
+                    element.removeEventListener('transitionend', handleTransitionEnd);
+                    if (config.placeholder) {
+                        config.placeholder.remove();
+                        config.placeholder = null;
+                    }
+                    element.removeAttribute('role');
+                    element.removeAttribute('aria-modal');
+                    element.removeAttribute('aria-label');
+                };
+
+                const handleTransitionEnd = (event) => {
+                    if (event.propertyName !== 'transform') return;
+                    finalize();
+                };
+
+                element.addEventListener('transitionend', handleTransitionEnd);
+                requestAnimationFrame(() => {
+                    element.classList.remove('modal-card-active');
+                });
+
+                activeModalTypes.delete(type);
+
+                if (!preserveOverlay && activeModalTypes.size === 0) {
+                    deactivateOverlay();
+                } else if (preserveOverlay) {
+                    activateOverlay();
+                }
+
+                setTimeout(finalize, 520);
+            };
+
+            const openLogModal = (statusText = 'Analyzing event...') => {
+                if (logProcessingOverlay) {
+                    logProcessingOverlay.classList.remove('hidden');
+                    logProcessingOverlay.classList.add('active');
+                }
+                if (logProcessingText && statusText) {
+                    logProcessingText.textContent = statusText;
+                }
+                openModal('log');
+                simulationLogContainer.setAttribute('role', 'dialog');
+                simulationLogContainer.setAttribute('aria-modal', 'true');
+                simulationLogContainer.setAttribute('aria-label', 'Simulation log results');
+                simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
+                if (closeLogModalBtn) {
+                    closeLogModalBtn.classList.remove('hidden');
                 }
             };
 
-            const isEventInputProminent = () => {
-                if (!eventInputSection) return false;
-                const rect = eventInputSection.getBoundingClientRect();
-                const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-                return rect.top < viewportHeight * 0.6;
+            const hideLogProcessing = () => {
+                if (!logProcessingOverlay) return;
+                logProcessingOverlay.classList.remove('active');
+                setTimeout(() => {
+                    if (!logProcessingOverlay.classList.contains('active')) {
+                        logProcessingOverlay.classList.add('hidden');
+                    }
+                }, 220);
             };
 
-            const updateSectionVisibility = () => {
-                if (visibilityLockActive) return;
-                if (isEventInputProminent()) {
-                    hideCollapsibleSections();
-                } else {
-                    showCollapsibleSections();
+            const closeLogModal = () => {
+                hideLogProcessing();
+                simulationLogContainer.removeAttribute('role');
+                simulationLogContainer.removeAttribute('aria-modal');
+                simulationLogContainer.removeAttribute('aria-label');
+                if (closeLogModalBtn) {
+                    closeLogModalBtn.classList.add('hidden');
                 }
+                closeModal('log');
             };
-
-            const temporarilyShowSections = (duration = 1200) => {
-                leaveInputFocusMode();
-                showCollapsibleSections();
-                visibilityLockActive = true;
-                if (visibilityLockTimeout) {
-                    clearTimeout(visibilityLockTimeout);
-                }
-                visibilityLockTimeout = setTimeout(() => {
-                    visibilityLockActive = false;
-                    visibilityLockTimeout = null;
-                    updateSectionVisibility();
-                }, duration);
-            };
-
-            window.addEventListener('scroll', updateSectionVisibility, { passive: true });
-            window.addEventListener('resize', updateSectionVisibility);
 
             eventInput.addEventListener('focus', () => {
-                if (visibilityLockTimeout) {
-                    clearTimeout(visibilityLockTimeout);
-                    visibilityLockTimeout = null;
-                }
-                visibilityLockActive = false;
-                enterInputFocusMode();
-                hideCollapsibleSections();
-                if (eventInputSection) {
-                    requestAnimationFrame(() => {
-                        eventInputSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    });
-                }
+                openModal('input');
             });
 
             eventInput.addEventListener('blur', () => {
-                leaveInputFocusMode();
-                if (!visibilityLockActive) {
-                    temporarilyShowSections(900);
+                if (modalConfigs.input.element.classList.contains('modal-card')) {
+                    closeModal('input', { preserveOverlay: preserveOverlayOnBlur });
                 }
+                preserveOverlayOnBlur = false;
             });
 
             if (inputFocusOverlay) {
                 inputFocusOverlay.addEventListener('click', () => {
-                    temporarilyShowSections(900);
-                    eventInput.blur();
+                    if (activeModalTypes.has('log')) {
+                        closeLogModal();
+                    } else if (activeModalTypes.has('input')) {
+                        eventInput.blur();
+                    }
+                });
+            }
+
+            if (closeLogModalBtn) {
+                closeLogModalBtn.addEventListener('click', () => {
+                    closeLogModal();
                 });
             }
 
             document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape' && document.activeElement === eventInput) {
-                    temporarilyShowSections(900);
-                    eventInput.blur();
+                if (event.key === 'Escape') {
+                    if (activeModalTypes.has('log')) {
+                        closeLogModal();
+                    } else if (document.activeElement === eventInput) {
+                        eventInput.blur();
+                    }
                 }
             });
-
-            showCollapsibleSections();
-            requestAnimationFrame(updateSectionVisibility);
 
             const surveyModal = document.getElementById('surveyModal');
             const submitSurveyBtn = document.getElementById('submitSurveyBtn');
@@ -747,11 +778,9 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     return;
                 }
 
-                expandSection(systemStateSection);
-                expandSection(simulationLogContainer);
-                temporarilyShowSections();
+                preserveOverlayOnBlur = true;
                 eventInput.blur();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                openLogModal('Analyzing event...');
 
                 runAiCycleBtn.disabled = true;
                 cycleLoader.classList.remove('hidden');
@@ -823,16 +852,13 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     cycleLoader.classList.add('hidden');
                     cycleBtnText.textContent = '🧠 Simulate Event';
                     eventInput.value = ''; // Clear input after simulation
-                    updateSectionVisibility();
+                    hideLogProcessing();
                     simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
                 }
             });
 
             runRecommendationBtn.addEventListener('click', async () => {
-                expandSection(systemStateSection);
-                expandSection(simulationLogContainer);
-                temporarilyShowSections();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                openLogModal('Preparing recommendation...');
 
                 runRecommendationBtn.disabled = true;
                 recommendationLoader.classList.remove('hidden');
@@ -883,7 +909,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     runRecommendationBtn.disabled = false;
                     recommendationLoader.classList.add('hidden');
                     recommendationBtnText.textContent = '💡 Get Recommendation';
-                    updateSectionVisibility();
+                    hideLogProcessing();
                     simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
                 }
             });
