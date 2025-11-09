@@ -2,20 +2,10 @@
   "name": "human-potential-simulator",
   "version": "1.0.0",
   "description": "Secure Serverless function dependencies for Gemini API.",
+  "scripts": {
+    "install": "npm install"
+  },
   "dependencies": {
     "@google/genai": "^0.1.0"
   }
 }
-```
-eof
-
----
-
-## Final Deployment Steps
-
-1.  **Add File:** Create and save the **`package.json`** file in your local `HUMAN` directory.
-2.  **Commit and Push:** Use the command line to push this new file to GitHub:
-    ```bash
-    git add package.json
-    git commit -m "Fix: Add package.json to install @google/genai dependency"
-    git push origin master
