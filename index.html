@@ -30,6 +30,9 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             max-height: 450px;
             margin: 0 auto;
         }
+        .collapsible-section {
+            transition: opacity 0.25s ease;
+        }
         @media (min-width: 768px) {
             .chart-container {
                 height: 400px;
@@ -107,8 +110,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
         
         <div class="w-full max-w-4xl bg-[#1a0c2c] rounded-xl shadow-2xl p-4 md:p-8 flex flex-col gap-6">
 
-            <!-- Pinned System State Chart -->
-            <div class="bg-[#2a1b3d] p-4 md:p-6 rounded-xl shadow-inner border border-[#9B5DE0]/30 sticky top-4 z-10">
+            <!-- System State Chart -->
+            <div id="systemStateSection" class="collapsible-section bg-[#2a1b3d] p-4 md:p-6 rounded-xl shadow-inner border border-[#9B5DE0]/30">
                 <h2 class="text-xl font-bold gradient-text mb-4 text-center">Current System State Vector</h2>
                 <div class="chart-container">
                     <canvas id="systemStateChart"></canvas>
@@ -116,7 +119,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             </div>
 
             <!-- Simulation Log (Chat History) -->
-            <div class="flex-grow bg-[#1f0f35] p-4 md:p-6 rounded-xl shadow-inner border border-[#F15BB5]/30 overflow-y-auto max-h-[60vh] md:max-h-[65vh] min-h-[300px]" id="simulationLogContainer">
+            <div id="simulationLogContainer" class="collapsible-section flex-grow bg-[#1f0f35] p-4 md:p-6 rounded-xl shadow-inner border border-[#F15BB5]/30 overflow-y-auto max-h-[60vh] md:max-h-[65vh] min-h-[300px]">
                 <p class="text-lg font-bold text-gray-300 mb-4">Simulation Log</p>
                 <div id="logEntries" class="space-y-4">
                     <!-- Initial Message -->
@@ -127,7 +130,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             </div>
 
             <!-- Input and Action Controls -->
-            <div class="mt-4 p-4 bg-[#2a1b3d] rounded-xl border border-[#9B5DE0]/30">
+            <div id="eventInputSection" class="mt-4 p-4 bg-[#2a1b3d] rounded-xl border border-[#9B5DE0]/30">
                 <h3 class="text-xl font-semibold text-gray-200 mb-4">Describe a new event to simulate:</h3>
                 <textarea id="eventInput" class="w-full p-3 rounded-lg bg-[#1f0f35] text-gray-200 border border-[#9B5DE0]/50 focus:border-[#F15BB5] outline-none transition-colors" rows="3" placeholder="Example: 'I received unexpected, harsh criticism at work, but later spent time in nature with my family.'"></textarea>
                 
@@ -204,6 +207,68 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             const logEntries = document.getElementById('logEntries');
             const initialLog = document.getElementById('initialLog');
             const eventInput = document.getElementById('eventInput');
+            const systemStateSection = document.getElementById('systemStateSection');
+            const eventInputSection = document.getElementById('eventInputSection');
+
+            const collapsibleSections = [systemStateSection, simulationLogContainer].filter(Boolean);
+            let visibilityLockActive = false;
+            let visibilityLockTimeout = null;
+
+            const showCollapsibleSections = () => {
+                collapsibleSections.forEach(section => section.classList.remove('hidden'));
+            };
+
+            const hideCollapsibleSections = () => {
+                collapsibleSections.forEach(section => section.classList.add('hidden'));
+            };
+
+            const isEventInputProminent = () => {
+                if (!eventInputSection) return false;
+                const rect = eventInputSection.getBoundingClientRect();
+                const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                return rect.top < viewportHeight * 0.6;
+            };
+
+            const updateSectionVisibility = () => {
+                if (visibilityLockActive) return;
+                if (isEventInputProminent()) {
+                    hideCollapsibleSections();
+                } else {
+                    showCollapsibleSections();
+                }
+            };
+
+            const temporarilyShowSections = (duration = 1200) => {
+                showCollapsibleSections();
+                visibilityLockActive = true;
+                if (visibilityLockTimeout) {
+                    clearTimeout(visibilityLockTimeout);
+                }
+                visibilityLockTimeout = setTimeout(() => {
+                    visibilityLockActive = false;
+                    updateSectionVisibility();
+                }, duration);
+            };
+
+            window.addEventListener('scroll', updateSectionVisibility, { passive: true });
+            window.addEventListener('resize', updateSectionVisibility);
+
+            eventInput.addEventListener('focus', () => {
+                if (visibilityLockTimeout) {
+                    clearTimeout(visibilityLockTimeout);
+                }
+                visibilityLockActive = false;
+                hideCollapsibleSections();
+            });
+
+            eventInput.addEventListener('blur', () => {
+                if (!visibilityLockActive) {
+                    updateSectionVisibility();
+                }
+            });
+
+            showCollapsibleSections();
+            requestAnimationFrame(updateSectionVisibility);
 
             const surveyModal = document.getElementById('surveyModal');
             const submitSurveyBtn = document.getElementById('submitSurveyBtn');
@@ -378,7 +443,11 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     alert('Please describe an event before running the simulation.');
                     return;
                 }
-                
+
+                eventInput.blur();
+                temporarilyShowSections();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
                 runAiCycleBtn.disabled = true;
                 cycleLoader.classList.remove('hidden');
                 cycleBtnText.textContent = 'Simulating...';
@@ -449,11 +518,15 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     cycleLoader.classList.add('hidden');
                     cycleBtnText.textContent = '🧠 Simulate Event';
                     eventInput.value = ''; // Clear input after simulation
+                    updateSectionVisibility();
                     simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
                 }
             });
 
             runRecommendationBtn.addEventListener('click', async () => {
+                temporarilyShowSections();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
                 runRecommendationBtn.disabled = true;
                 recommendationLoader.classList.remove('hidden');
                 recommendationBtnText.textContent = 'Analyzing...';
@@ -503,6 +576,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     runRecommendationBtn.disabled = false;
                     recommendationLoader.classList.add('hidden');
                     recommendationBtnText.textContent = '💡 Get Recommendation';
+                    updateSectionVisibility();
                     simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
                 }
             });
