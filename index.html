@@ -184,6 +184,65 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
         .log-processing:not(.active) {
             animation-play-state: paused;
         }
+        .inline-recommendation-footer {
+            margin-top: 1.75rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid rgba(74, 52, 110, 0.75);
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+        @media (min-width: 640px) {
+            .inline-recommendation-footer {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+        .inline-recommendation-copy {
+            font-size: 0.85rem;
+            color: rgba(226, 214, 255, 0.82);
+            line-height: 1.6;
+        }
+        .inline-recommendation-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            padding: 0.75rem 1.35rem;
+            border-radius: 0.9rem;
+            background: linear-gradient(140deg, rgba(155, 93, 224, 0.95), rgba(241, 91, 181, 0.9));
+            color: #ffffff;
+            font-weight: 600;
+            border: 1px solid rgba(241, 91, 181, 0.35);
+            box-shadow: 0 16px 42px -18px rgba(241, 91, 181, 0.58);
+            transition: transform 0.35s cubic-bezier(0.33, 1, 0.68, 1), box-shadow 0.35s cubic-bezier(0.33, 1, 0.68, 1), background-position 0.35s ease;
+        }
+        .inline-recommendation-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 48px -18px rgba(241, 91, 181, 0.68);
+        }
+        .inline-recommendation-btn:active {
+            transform: translateY(1px);
+        }
+        .inline-recommendation-btn:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 12px 32px -20px rgba(241, 91, 181, 0.45);
+        }
+        .inline-recommendation-spinner {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            animation: spin 0.8s linear infinite;
+        }
+        .inline-recommendation-spinner.hidden {
+            display: none;
+        }
         @media (prefers-reduced-motion: reduce) {
             .focus-overlay {
                 transition: opacity 0.2s ease;
@@ -687,8 +746,32 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 closeModal('log');
             };
 
+            eventInput.addEventListener('pointerdown', () => {
+                if (!modalConfigs.input.element.classList.contains('modal-card')) {
+                    openModal('input');
+                }
+                requestAnimationFrame(() => {
+                    if (document.activeElement !== eventInput) {
+                        try {
+                            eventInput.focus({ preventScroll: true });
+                        } catch (error) {
+                            eventInput.focus();
+                        }
+                    }
+                });
+            });
+
             eventInput.addEventListener('focus', () => {
                 openModal('input');
+                requestAnimationFrame(() => {
+                    if (document.activeElement !== eventInput) {
+                        try {
+                            eventInput.focus({ preventScroll: true });
+                        } catch (error) {
+                            eventInput.focus();
+                        }
+                    }
+                });
             });
 
             eventInput.addEventListener('blur', () => {
@@ -829,7 +912,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             // --- Chart Initialization ---
             const ctx = document.getElementById('systemStateChart').getContext('2d');
             let systemStateData = [5, 5, 5, 5, 5];
-            
+
             const chartConfig = {
                 type: 'radar',
                 data: {
@@ -900,6 +983,92 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             const systemChart = new Chart(ctx, chartConfig);
             // --- End Chart Initialization ---
 
+            const runRecommendationFlow = async ({
+                triggerButton = null,
+                loaderEl = null,
+                labelEl = null,
+                defaultLabel = null,
+                loadingLabel = 'Analyzing...'
+            } = {}) => {
+                if (triggerButton && triggerButton.disabled) {
+                    return;
+                }
+
+                const resolvedDefaultLabel = defaultLabel ?? (labelEl ? labelEl.textContent : null);
+
+                const setLoadingState = (isLoading) => {
+                    if (triggerButton) {
+                        triggerButton.disabled = isLoading;
+                    }
+                    if (loaderEl) {
+                        if (isLoading) {
+                            loaderEl.classList.remove('hidden');
+                        } else {
+                            loaderEl.classList.add('hidden');
+                        }
+                    }
+                    if (labelEl && resolvedDefaultLabel !== null) {
+                        labelEl.textContent = isLoading ? loadingLabel : resolvedDefaultLabel;
+                    }
+                };
+
+                if (document.activeElement === eventInput) {
+                    preserveOverlayOnBlur = true;
+                    eventInput.blur();
+                }
+
+                openLogModal('Preparing recommendation...');
+
+                setLoadingState(true);
+                initialLog.classList.add('hidden');
+
+                const aiEntry = document.createElement('div');
+                aiEntry.className = 'p-3 bg-[#2a1b3d] rounded-lg border-l-4 border-[#9B5DE0]';
+                aiEntry.innerHTML = `<p class="font-semibold text-[#9B5DE0] mb-2">System Recommendation:</p><div class="space-y-1 text-sm text-gray-400 italic">Analyzing current state for optimization...</div>`;
+                logEntries.appendChild(aiEntry);
+
+                simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
+
+                const currentData = systemChart.data.datasets[0].data;
+                const currentState = {
+                    meaning: currentData[0],
+                    vitality: currentData[1],
+                    cognition: currentData[2],
+                    emotion: currentData[3],
+                    adaptability: currentData[4]
+                };
+
+                const payload = { currentState, type: 'recommend' };
+
+                try {
+                    const result = await callApi(RECOMMEND_ENDPOINT, payload);
+                    const { recommendation, newState } = result;
+
+                    let recommendationHtml = `<p class="font-semibold text-[#9B5DE0] mb-2">System Recommendation:</p><p class="text-gray-300 mb-4">${escapeHTML(recommendation)}</p><p class="text-xs italic text-[#F15BB5]">Chart shows projected state if this recommendation is implemented.</p>`;
+                    aiEntry.innerHTML = recommendationHtml;
+
+                    const newData = [
+                        Math.max(1, Math.min(10, newState.meaning)),
+                        Math.max(1, Math.min(10, newState.vitality)),
+                        Math.max(1, Math.min(10, newState.cognition)),
+                        Math.max(1, Math.min(10, newState.emotion)),
+                        Math.max(1, Math.min(10, newState.adaptability))
+                    ];
+
+                    // Update Projected State Dataset
+                    systemChart.data.datasets[1].data = newData;
+                    systemChart.data.datasets[1].hidden = false;
+                    systemChart.update();
+
+                } catch (error) {
+                    aiEntry.innerHTML = `<p class="font-semibold text-red-500">Recommendation Error</p><p>Could not contact the AI simulation network. (Details: ${escapeHTML(error.message)})</p>`;
+                } finally {
+                    setLoadingState(false);
+                    hideLogProcessing();
+                    simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
+                }
+            };
+
             // --- Event Handlers ---
             runAiCycleBtn.addEventListener('click', async () => {
                 const eventText = eventInput.value.trim();
@@ -961,6 +1130,40 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     
                     aiEntry.innerHTML = analysisHtml;
 
+                    const recommendationFooter = document.createElement('div');
+                    recommendationFooter.className = 'inline-recommendation-footer';
+
+                    const recommendationCopy = document.createElement('p');
+                    recommendationCopy.className = 'inline-recommendation-copy';
+                    recommendationCopy.textContent = 'Ready for next steps? Generate a tailored recommendation to build on this analysis.';
+
+                    const inlineRecommendationBtn = document.createElement('button');
+                    inlineRecommendationBtn.type = 'button';
+                    inlineRecommendationBtn.className = 'inline-recommendation-btn';
+                    inlineRecommendationBtn.setAttribute('aria-label', 'Get recommendation based on this analysis');
+
+                    const inlineRecommendationLabel = document.createElement('span');
+                    inlineRecommendationLabel.textContent = '💡 Get Recommendation';
+
+                    const inlineRecommendationSpinner = document.createElement('span');
+                    inlineRecommendationSpinner.className = 'inline-recommendation-spinner hidden';
+                    inlineRecommendationSpinner.setAttribute('aria-hidden', 'true');
+
+                    inlineRecommendationBtn.append(inlineRecommendationLabel, inlineRecommendationSpinner);
+
+                    inlineRecommendationBtn.addEventListener('click', () => {
+                        runRecommendationFlow({
+                            triggerButton: inlineRecommendationBtn,
+                            loaderEl: inlineRecommendationSpinner,
+                            labelEl: inlineRecommendationLabel,
+                            defaultLabel: '💡 Get Recommendation',
+                            loadingLabel: 'Analyzing...'
+                        });
+                    });
+
+                    recommendationFooter.append(recommendationCopy, inlineRecommendationBtn);
+                    aiEntry.appendChild(recommendationFooter);
+
                     // 3. Update the Chart
                     const newData = [
                         Math.max(1, Math.min(10, newState.meaning)),
@@ -987,61 +1190,14 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 }
             });
 
-            runRecommendationBtn.addEventListener('click', async () => {
-                openLogModal('Preparing recommendation...');
-
-                runRecommendationBtn.disabled = true;
-                recommendationLoader.classList.remove('hidden');
-                recommendationBtnText.textContent = 'Analyzing...';
-                initialLog.classList.add('hidden');
-
-                const aiEntry = document.createElement('div');
-                aiEntry.className = 'p-3 bg-[#2a1b3d] rounded-lg border-l-4 border-[#9B5DE0]';
-                aiEntry.innerHTML = `<p class="font-semibold text-[#9B5DE0] mb-2">System Recommendation:</p><div class="space-y-1 text-sm text-gray-400 italic">Analyzing current state for optimization...</div>`;
-                logEntries.appendChild(aiEntry);
-
-                simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
-                
-                const currentData = systemChart.data.datasets[0].data;
-                const currentState = {
-                    meaning: currentData[0],
-                    vitality: currentData[1],
-                    cognition: currentData[2],
-                    emotion: currentData[3],
-                    adaptability: currentData[4]
-                };
-                
-                const payload = { currentState, type: 'recommend' };
-
-                try {
-                    const result = await callApi(RECOMMEND_ENDPOINT, payload);
-                    const { recommendation, newState } = result;
-
-                    let recommendationHtml = `<p class="font-semibold text-[#9B5DE0] mb-2">System Recommendation:</p><p class="text-gray-300 mb-4">${escapeHTML(recommendation)}</p><p class="text-xs italic text-[#F15BB5]">Chart shows projected state if this recommendation is implemented.</p>`;
-                    aiEntry.innerHTML = recommendationHtml;
-                    
-                    const newData = [
-                        Math.max(1, Math.min(10, newState.meaning)),
-                        Math.max(1, Math.min(10, newState.vitality)),
-                        Math.max(1, Math.min(10, newState.cognition)),
-                        Math.max(1, Math.min(10, newState.emotion)),
-                        Math.max(1, Math.min(10, newState.adaptability))
-                    ];
-                    
-                    // Update Projected State Dataset
-                    systemChart.data.datasets[1].data = newData;
-                    systemChart.data.datasets[1].hidden = false;
-                    systemChart.update();
-
-                } catch (error) {
-                    aiEntry.innerHTML = `<p class="font-semibold text-red-500">Recommendation Error</p><p>Could not contact the AI simulation network. (Details: ${escapeHTML(error.message)})</p>`;
-                } finally {
-                    runRecommendationBtn.disabled = false;
-                    recommendationLoader.classList.add('hidden');
-                    recommendationBtnText.textContent = '💡 Get Recommendation';
-                    hideLogProcessing();
-                    simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
-                }
+            runRecommendationBtn.addEventListener('click', () => {
+                runRecommendationFlow({
+                    triggerButton: runRecommendationBtn,
+                    loaderEl: recommendationLoader,
+                    labelEl: recommendationBtnText,
+                    defaultLabel: '💡 Get Recommendation',
+                    loadingLabel: 'Analyzing...'
+                });
             });
 
         });
