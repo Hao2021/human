@@ -1,20 +1,9 @@
-// {
-//   "name": "human-potential-simulator",
-//   "version": "1.0.0",
-//   "description": "Secure Serverless function dependencies for Gemini API.",
-//   "dependencies": {
-//     "@google/genai": "*" 
-//   }
-// }
-
 {
   "name": "human-potential-simulator",
   "version": "1.0.0",
   "description": "Secure Serverless function dependencies for Gemini API.",
   "dependencies": {
-    "@google/genai": "*"
+    "@google/genai": "*" 
   }
 }
-```eof
 
-After saving this file (and the corrected `api/simulate.js`), run the final push command to get your **Curiolab Academy SEL tool** deployed successfully!

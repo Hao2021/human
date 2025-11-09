@@ -1,13 +1,12 @@
 <!-- Chosen Palette: Futuristic Purple/Pink Gradient (Primary: #9B5DE0, Accent: #F15BB5) -->
-<!-- Application Structure Plan: Dashboard/Chat Interface. The structure focuses on maximizing the visibility of the real-time radar chart while integrating the AI analysis into a clean, scrollable log below. This design prioritizes the core feedback loop (Event -> Analysis -> State Change), aligning with the SEL goal of structured reflection. The input box uses a mobile modal to enhance typing usability on small screens. -->
+<!-- Application Structure Plan: Dashboard/Chat Interface. The structure focuses on maximizing the visibility of the primary data visualization (Radar Chart) and presenting the simulation results in a dynamic, scrollable log (like a chat history). This structure was chosen to emphasize the iterative, conversational nature of the "system dialogue" and the immediate feedback loop (chart update -> detailed log entry) central to the project's goal. -->
 <!-- Visualization & Content Choices:
-1. System State Vector (Vitality, Cognition, Emotion, Adaptability, Meaning) -> Goal: Visualize systemic coherence -> Viz/Presentation Method: Radar Chart (Chart.js) -> Interaction: Dynamic update after every AI call (Simulate/Recommend).
-2. Event Input -> Goal: Personalize the simulation input -> Viz/Presentation Method: Large Textarea (using a full-screen modal trigger on mobile) -> Interaction: Triggers API call to /api/simulate.
-3. Simulation Log -> Goal: Display AI analysis and synthesis -> Viz/Presentation Method: Scrollable, segmented log (Chat style) -> Interaction: Log history is preserved across cycles.
-4. Survey Modal -> Goal: Set initial user state (personalized start) -> Viz/Presentation Method: Sliders/Form in a pop-up modal -> Interaction: Updates chart data directly.
-5. Recommendation Logic -> Goal: Proactive system optimization -> Viz/Presentation Method: AI-generated text and dual-color radar chart (Current vs. Projected State).
-CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
--->
+1. System State Vector (Vitality, Cognition, Emotion, Adaptability, Meaning) -> Goal: Visualize systemic coherence/imbalance -> Viz/Presentation Method: Chart.js Radar Chart (Canvas) with two datasets for current and projected states -> Interaction: Dynamic update after Survey, Simulation, and Recommendation runs. -> Justification: Radar charts are excellent for visualizing multi-dimensional balance/imbalance. Library/Method: Chart.js (Canvas).
+2. Event Input -> Goal: Personalize the simulation input -> Viz/Presentation Method: Large Textarea Input -> Interaction: Submit button triggers AI call, sending text as context. -> Justification: Captures the "real-world" context of the system disturbance. Library/Method: Vanilla JS.
+3. Simulation Log -> Goal: Display AI analysis and synthesis -> Viz/Presentation Method: Scrollable, segmented log with distinct user/AI chat bubbles -> Interaction: Log entries dynamically added on button click. -> Justification: Provides in-depth, recursive feedback loops as requested by the prompt. Library/Method: Vanilla JS DOM manipulation.
+4. Survey Modal -> Goal: Set initial user state (personalized start) -> Viz/Presentation Method: Sliders/Form in a Modal -> Interaction: Submitting updates the chart and closes the modal. -> Justification: Makes the simulation immediately relevant to the user. Library/Method: Vanilla JS.
+5. Recommendation Logic -> Goal: Proactive system optimization -> Viz/Presentation Method: AI-generated text and a second dataset in the Radar Chart (Projected State) -> Interaction: Button click runs new AI logic and updates the chart. -> Justification: Provides immediate visual feedback on potential system improvements. Library/Method: Chart.js & Serverless Function (secure API call).
+CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,7 +19,6 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            /* Deep, futuristic gradient background */
             background: linear-gradient(135deg, #1f0f35 0%, #3d1c6e 100%);
             min-height: 100vh;
             color: #E0E0E0;
@@ -32,28 +30,11 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
             max-height: 450px;
             margin: 0 auto;
         }
-        /* Mobile specific chart size adjustment */
         @media (min-width: 768px) {
             .chart-container {
                 height: 400px;
                 max-width: 600px;
             }
-        }
-
-        .chat-log {
-            max-height: 60vh; /* Limits chat log height */
-            overflow-y: auto;
-            scroll-behavior: smooth;
-        }
-        .chat-log::-webkit-scrollbar {
-            width: 8px;
-        }
-        .chat-log::-webkit-scrollbar-thumb {
-            background-color: #63309a;
-            border-radius: 4px;
-        }
-        .chat-log::-webkit-scrollbar-track {
-            background: #2c1a4b;
         }
         .modal-overlay {
             position: fixed;
@@ -61,198 +42,290 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            background-color: rgba(0, 0, 0, 0.85);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 50;
         }
         .modal-content {
-            background: #2c1a4b;
+            background: #1f0f35;
+            color: #E0E0E0;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 8px 30px rgba(155, 93, 224, 0.3);
             width: 90%;
-            max-width: 500px;
-            animation: fadeIn 0.3s ease-out;
+            max-width: 600px;
+            box-shadow: 0 10px 25px rgba(155, 93, 224, 0.5);
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        /* Full-screen modal for mobile typing */
-        #inputModal .modal-content {
+        .hidden {
+            display: none;
+        }
+        .gradient-text {
+            background-image: linear-gradient(45deg, #9B5DE0, #F15BB5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
             width: 100%;
-            height: 100%;
-            max-width: none;
-            max-height: none;
-            border-radius: 0;
-            background: #1f0f35;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
+            height: 8px;
+            border-radius: 5px;
+            background: #4a346e;
+            outline: none;
+            opacity: 0.9;
+            transition: opacity .2s;
         }
-        #inputModal textarea {
-            flex-grow: 1;
-            min-height: 200px;
-            resize: none;
-            background: #2c1a4b;
-            border: 1px solid #9B5DE0;
-            color: #fff;
-            padding: 12px;
-            font-size: 16px;
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #F15BB5;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(241, 91, 181, 0.8);
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #F15BB5;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(241, 91, 181, 0.8);
         }
-        .hidden { display: none; }
     </style>
 </head>
-<body class="selection:bg-fuchsia-400 selection:text-black">
+<body>
 
-    <div class="min-h-screen flex justify-center py-6 md:py-12">
-        <div class="w-full max-w-4xl px-4">
-            
-            <header class="mb-8 text-center">
-                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-2">
-                    Human Potential System Explorer
-                </h1>
-                <p class="text-fuchsia-300 text-lg">Curiolab Academy SEL Tool</p>
-            </header>
+    <main class="min-h-screen flex flex-col items-center p-4 md:p-8">
+        <h1 class="text-3xl md:text-4xl font-extrabold mb-6 gradient-text text-center pt-4">
+            Human Potential System Simulator
+        </h1>
+        
+        <div class="w-full max-w-4xl bg-[#1a0c2c] rounded-xl shadow-2xl p-4 md:p-8 flex flex-col gap-6">
 
-            <div class="bg-[#2c1a4b] p-4 md:p-8 rounded-xl shadow-[0_0_40px_rgba(155,93,224,0.1)]">
-                
-                <!-- System State Chart (Pinned) -->
-                <div class="chart-container mb-6">
+            <!-- Pinned System State Chart -->
+            <div class="bg-[#2a1b3d] p-4 md:p-6 rounded-xl shadow-inner border border-[#9B5DE0]/30 sticky top-4 z-10">
+                <h2 class="text-xl font-bold gradient-text mb-4 text-center">Current System State Vector</h2>
+                <div class="chart-container">
                     <canvas id="systemStateChart"></canvas>
                 </div>
+            </div>
 
-                <!-- Simulation Log (Chat History) -->
-                <div id="simulationLog" class="chat-log bg-[#1f0f35] p-4 md:p-6 rounded-lg mb-6 shadow-inner border border-purple-700">
-                    <p class="text-lg font-semibold text-white mb-3">Simulation Log</p>
-                    <div id="logContent" class="space-y-4">
-                        <!-- Initial Message -->
-                        <div class="bg-purple-800/20 p-4 rounded-lg text-sm text-fuchsia-200">
-                            <p class="font-bold text-fuchsia-300">System Initialized</p>
-                            <p>Please complete the **Initial State Survey** to set your personal baseline. Then, describe an event to start the systemic simulation.</p>
-                        </div>
+            <!-- Simulation Log (Chat History) -->
+            <div class="flex-grow bg-[#1f0f35] p-4 md:p-6 rounded-xl shadow-inner border border-[#F15BB5]/30 overflow-y-auto max-h-[60vh] md:max-h-[65vh] min-h-[300px]" id="simulationLogContainer">
+                <p class="text-lg font-bold text-gray-300 mb-4">Simulation Log</p>
+                <div id="logEntries" class="space-y-4">
+                    <!-- Initial Message -->
+                    <div id="initialLog" class="p-3 bg-[#2a1b3d] rounded-lg border-l-4 border-[#9B5DE0]">
+                        <p class="text-gray-400 italic">Welcome! Please click the 'Start Simulation' button in the popup to set your initial state.</p>
                     </div>
                 </div>
+            </div>
 
-                <!-- Input Area & Controls -->
-                <div class="p-4 bg-[#1f0f35] rounded-lg border border-purple-700">
-                    <div class="hidden md:block">
-                        <label for="eventInput" class="block text-white font-semibold mb-2">Describe a new event to simulate:</label>
-                        <textarea id="eventInput" class="w-full p-3 h-24 rounded-lg bg-stone-900/50 border border-purple-500 text-white placeholder-fuchsia-200 focus:outline-none focus:ring-2 focus:ring-fuchsia-500" placeholder="Example: 'I received unexpected, harsh criticism at work, but later spent time in nature with my family.'"></textarea>
-                    </div>
-                    
-                    <!-- Mobile-only input trigger -->
-                    <div class="md:hidden">
-                        <label for="eventInputMobile" class="block text-white font-semibold mb-2">Describe a new event to simulate:</label>
-                        <button id="openInputModalBtn" class="w-full p-3 rounded-lg bg-stone-900/50 border border-purple-500 text-fuchsia-300 text-left" aria-label="Open full screen input modal">
-                            Tap here to type your event...
-                        </button>
-                    </div>
-                    
-                    <div class="flex flex-col md:flex-row gap-4 mt-4">
-                        <button id="runAiCycleBtn" class="flex-1 bg-fuchsia-600 text-white font-bold py-3 px-4 rounded-lg shadow-xl hover:bg-fuchsia-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                            <span id="cycleLoader" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                            <span id="cycleBtnText">✨ Simulate Event</span>
-                        </button>
-                        <button id="getRecommendationBtn" class="flex-1 bg-purple-600 text-white font-bold py-3 px-4 rounded-lg shadow-xl hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                            <span id="recommendationLoader" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                            <span id="recommendationBtnText">💡 Get Recommendation</span>
-                        </button>
-                    </div>
+            <!-- Input and Action Controls -->
+            <div class="mt-4 p-4 bg-[#2a1b3d] rounded-xl border border-[#9B5DE0]/30">
+                <h3 class="text-xl font-semibold text-gray-200 mb-4">Describe a new event to simulate:</h3>
+                <textarea id="eventInput" class="w-full p-3 rounded-lg bg-[#1f0f35] text-gray-200 border border-[#9B5DE0]/50 focus:border-[#F15BB5] outline-none transition-colors" rows="3" placeholder="Example: 'I received unexpected, harsh criticism at work, but later spent time in nature with my family.'"></textarea>
+                
+                <div class="flex flex-col md:flex-row gap-4 mt-4">
+                    <button id="runAiCycleBtn" class="flex-1 bg-[#F15BB5] text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-[#F15BB5]/40 hover:bg-[#E04BA4] transition-colors flex items-center justify-center gap-2 disabled:opacity-75"
+                    >
+                        <span id="cycleBtnText">🧠 Simulate Event</span>
+                        <svg id="cycleLoader" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                    <button id="runRecommendationBtn" class="flex-1 bg-transparent border border-[#9B5DE0] text-[#9B5DE0] font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-[#9B5DE0] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-75">
+                        <span id="recommendationBtnText">💡 Get Recommendation</span>
+                        <svg id="recommendationLoader" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
                 </div>
-
             </div>
         </div>
-    </div>
-    
-    <!-- SURVEY MODAL (Initial State) -->
+    </main>
+
+    <!-- Initial State Survey Modal -->
     <div id="surveyModal" class="modal-overlay">
         <div class="modal-content">
-            <h2 class="text-3xl font-bold text-fuchsia-400 mb-4">Set Your Initial System State</h2>
-            <p class="text-fuchsia-200 leading-relaxed mb-6">Answer these 5 questions (1 = Low, 10 = High) to set your personal starting point for the simulation.</p>
+            <h2 class="text-3xl font-bold gradient-text mb-4">Initialize Your System State</h2>
+            <p class="text-gray-400 leading-relaxed mb-6">Set your current state (1 = Low, 10 = High) to personalize the simulation. This will be the starting point for your first AI cycle.</p>
             
-            <div id="surveySliders" class="space-y-5">
-                <!-- Sliders will be populated by JS for cleaner code -->
+            <div class="space-y-5">
+                <div>
+                    <label for="vitalitySlider" class="block font-semibold text-gray-200 mb-1">1. Vitality: Physical energy and health <span id="vitalityValue" class="font-bold text-[#F15BB5]">5</span></label>
+                    <input id="vitalitySlider" type="range" min="1" max="10" value="5">
+                </div>
+                
+                <div>
+                    <label for="cognitionSlider" class="block font-semibold text-gray-200 mb-1">2. Cognition: Clarity, focus, and thinking speed <span id="cognitionValue" class="font-bold text-[#F15BB5]">5</span></label>
+                    <input id="cognitionSlider" type="range" min="1" max="10" value="5">
+                </div>
+
+                <div>
+                    <label for="emotionSlider" class="block font-semibold text-gray-200 mb-1">3. Emotion: Stability, mood, and resilience <span id="emotionValue" class="font-bold text-[#F15BB5]">5</span></label>
+                    <input id="emotionSlider" type="range" min="1" max="10" value="5">
+                </div>
+
+                <div>
+                    <label for="adaptabilitySlider" class="block font-semibold text-gray-200 mb-1">4. Adaptability: Handling change and stress <span id="adaptabilityValue" class="font-bold text-[#F15BB5]">5</span></label>
+                    <input id="adaptabilitySlider" type="range" min="1" max="10" value="5">
+                </div>
+
+                <div>
+                    <label for="meaningSlider" class="block font-semibold text-gray-200 mb-1">5. Meaning: Sense of purpose and alignment <span id="meaningValue" class="font-bold text-[#F15BB5]">5</span></label>
+                    <input id="meaningSlider" type="range" min="1" max="10" value="5">
+                </div>
             </div>
 
-            <button id="submitSurveyBtn" class="mt-8 w-full bg-fuchsia-600 text-white font-semibold py-3 px-4 rounded-lg shadow-xl hover:bg-fuchsia-700 transition-colors">
+            <button id="submitSurveyBtn" class="mt-8 w-full bg-[#9B5DE0] text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-[#9B5DE0]/40 hover:bg-[#8B4FE8] transition-colors">
                 Start Simulation
-            </button>
-        </div>
-    </div>
-
-    <!-- MOBILE INPUT MODAL -->
-    <div id="inputModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 class="text-2xl font-bold text-fuchsia-400 mb-4">Describe Your Event</h2>
-            <textarea id="eventInputModal" placeholder="Type your event here. Use full sentences to describe what happened and how you felt."></textarea>
-            <button id="closeInputModalBtn" class="mt-4 bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors">
-                Done Typing
             </button>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- UI ELEMENTS ---
-            const logContent = document.getElementById('logContent');
-            const simulationLog = document.getElementById('simulationLog');
+
             const runAiCycleBtn = document.getElementById('runAiCycleBtn');
             const cycleLoader = document.getElementById('cycleLoader');
             const cycleBtnText = document.getElementById('cycleBtnText');
-            const getRecommendationBtn = document.getElementById('getRecommendationBtn');
+            const runRecommendationBtn = document.getElementById('runRecommendationBtn');
             const recommendationLoader = document.getElementById('recommendationLoader');
             const recommendationBtnText = document.getElementById('recommendationBtnText');
-            const eventInput = document.getElementById('eventInput'); // Desktop input
-            
-            // --- MODAL ELEMENTS ---
+            const simulationLogContainer = document.getElementById('simulationLogContainer');
+            const logEntries = document.getElementById('logEntries');
+            const initialLog = document.getElementById('initialLog');
+            const eventInput = document.getElementById('eventInput');
+
             const surveyModal = document.getElementById('surveyModal');
             const submitSurveyBtn = document.getElementById('submitSurveyBtn');
-            const surveySlidersContainer = document.getElementById('surveySliders');
-            const inputModal = document.getElementById('inputModal');
-            const openInputModalBtn = document.getElementById('openInputModalBtn');
-            const closeInputModalBtn = document.getElementById('closeInputModalBtn');
-            const eventInputModal = document.getElementById('eventInputModal'); // Mobile input
+            const sliders = {
+                vitality: document.getElementById('vitalitySlider'),
+                cognition: document.getElementById('cognitionSlider'),
+                emotion: document.getElementById('emotionSlider'),
+                adaptability: document.getElementById('adaptabilitySlider'),
+                meaning: document.getElementById('meaningSlider')
+            };
+            const values = {
+                vitality: document.getElementById('vitalityValue'),
+                cognition: document.getElementById('cognitionValue'),
+                emotion: document.getElementById('emotionValue'),
+                adaptability: document.getElementById('adaptabilityValue'),
+                meaning: document.getElementById('meaningValue')
+            };
 
-            // --- DATA & CONFIG ---
-            const SYSTEM_LABELS = ["Vitality", "Cognition", "Emotion", "Adaptability", "Meaning"];
-            let systemStateData = [5, 5, 5, 5, 5]; // Default starting state
-            let systemChart;
+            Object.keys(sliders).forEach(key => {
+                sliders[key].addEventListener('input', (e) => {
+                    values[key].textContent = e.target.value;
+                });
+            });
+
+            submitSurveyBtn.addEventListener('click', () => {
+                const newData = [
+                    parseInt(sliders.vitality.value, 10),
+                    parseInt(sliders.cognition.value, 10),
+                    parseInt(sliders.emotion.value, 10),
+                    parseInt(sliders.adaptability.value, 10),
+                    parseInt(sliders.meaning.value, 10)
+                ];
+                
+                systemChart.data.datasets[0].data = newData;
+                systemChart.data.datasets[1].data = newData;
+                systemChart.data.datasets[1].hidden = true;
+                systemChart.update();
+                
+                surveyModal.classList.add('hidden');
+                initialLog.classList.remove('hidden');
+                initialLog.innerHTML = `<p class="text-gray-400 italic">Initial state set. Describe an event and click 'Simulate Event' to begin the dynamic dialogue.</p>`;
+            });
+
 
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            // --- CHART INITIALIZATION ---
+            // --- API Configuration: Calls local serverless function endpoints ---
+            // The hosting platform (Vercel/Netlify) routes these paths securely.
+            const SIMULATE_ENDPOINT = '/api/simulate';
+            const RECOMMEND_ENDPOINT = '/api/simulate'; 
+            // We use the same file (simulate.js) for both, differentiated by the 'type' in the payload.
+            
+            async function callApi(endpoint, payload, retries = 3, delay = 1000) {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            // Check if the serverless function returned an error JSON
+                            const errorBody = await response.json().catch(() => ({ message: 'Server error with no JSON body.' }));
+                            throw new Error(`API request failed with status ${response.status}: ${errorBody.message || JSON.stringify(errorBody)}`);
+                        }
+
+                        return await response.json();
+                        
+                    } catch (error) {
+                        if (i === retries - 1) {
+                            console.error('API call failed after retries:', error);
+                            throw error;
+                        }
+                        await sleep(delay * Math.pow(2, i));
+                    }
+                }
+            }
+
+
+            function escapeHTML(str) {
+                if (typeof str !== 'string') return '';
+                return str.replace(/[&<>"']/g, function(m) {
+                    return {
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        '"': '&quot;',
+                        "'": '&#39;'
+                    }[m];
+                });
+            }
+
+            // --- Chart Initialization ---
             const ctx = document.getElementById('systemStateChart').getContext('2d');
+            let systemStateData = [5, 5, 5, 5, 5];
+            
             const chartConfig = {
                 type: 'radar',
                 data: {
-                    labels: SYSTEM_LABELS,
+                    labels: ['Meaning', 'Vitality', 'Cognition', 'Emotion', 'Adaptability'],
                     datasets: [{
                         label: 'System State',
                         data: systemStateData,
-                        backgroundColor: 'rgba(155, 93, 224, 0.4)', // Purple
-                        borderColor: '#9B5DE0',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#9B5DE0',
+                        fill: true,
+                        backgroundColor: 'rgba(155, 93, 224, 0.2)',
+                        borderColor: 'rgb(155, 93, 224)',
+                        pointBackgroundColor: 'rgb(155, 93, 224)',
                         pointBorderColor: '#fff',
                         pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: '#9B5DE0',
-                        fill: true
+                        pointHoverBorderColor: 'rgb(155, 93, 224)'
                     }, {
-                        // Projected State Dataset (Hidden by default, used for recommendations)
                         label: 'Projected State',
-                        data: [0, 0, 0, 0, 0], 
-                        backgroundColor: 'rgba(241, 91, 181, 0.4)', // Pink
-                        borderColor: '#F15BB5',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#F15BB5',
+                        data: systemStateData,
+                        fill: true,
+                        backgroundColor: 'rgba(241, 91, 181, 0.2)',
+                        borderColor: 'rgb(241, 91, 181)',
+                        pointBackgroundColor: 'rgb(241, 91, 181)',
                         pointBorderColor: '#fff',
                         pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: '#F15BB5',
-                        hidden: true,
-                        fill: true
+                        pointHoverBorderColor: 'rgb(241, 91, 181)',
+                        hidden: true
                     }]
                 },
                 options: {
@@ -260,293 +333,178 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
                     maintainAspectRatio: false,
                     scales: {
                         r: {
-                            angleLines: { color: 'rgba(255, 255, 255, 0.3)' },
-                            grid: { color: 'rgba(255, 255, 255, 0.3)' },
-                            pointLabels: { color: '#fff', font: { size: 14 } },
+                            angleLines: {
+                                color: '#4a346e'
+                            },
+                            grid: {
+                                color: '#4a346e'
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 14
+                                },
+                                color: '#F0F0F0'
+                            },
                             suggestedMin: 0,
                             suggestedMax: 10,
-                            ticks: { 
-                                stepSize: 2, 
-                                display: false, // Hide ticks for cleaner look
-                                color: '#fff'
-                            },
+                            ticks: {
+                                display: false,
+                                color: '#9B5DE0',
+                                backdropColor: '#1a0c2c'
+                            }
                         }
                     },
                     plugins: {
                         legend: {
+                            display: true,
                             labels: {
-                                color: '#fff',
-                                font: { size: 14 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => `${context.dataset.label}: ${context.raw}`
+                                color: '#F0F0F0',
+                                font: {
+                                    size: 14
+                                }
                             }
                         }
                     }
                 }
             };
 
-            systemChart = new Chart(ctx, chartConfig);
-            
-            // --- LOGGING UTILITY ---
+            const systemChart = new Chart(ctx, chartConfig);
+            // --- End Chart Initialization ---
 
-            const createLogEntry = (type, title, content) => {
-                const entry = document.createElement('div');
-                let bgColor = '';
-                let titleColor = '';
-
-                switch(type) {
-                    case 'user':
-                        bgColor = 'bg-fuchsia-800/20';
-                        titleColor = 'text-fuchsia-300';
-                        break;
-                    case 'ai':
-                        bgColor = 'bg-purple-800/40';
-                        titleColor = 'text-purple-300';
-                        break;
-                    case 'recommendation':
-                        bgColor = 'bg-pink-800/40';
-                        titleColor = 'text-pink-300';
-                        break;
-                    case 'error':
-                        bgColor = 'bg-red-800/40';
-                        titleColor = 'text-red-400';
-                        break;
-                    default:
-                        bgColor = 'bg-stone-800/40';
-                        titleColor = 'text-stone-300';
-                }
-
-                entry.className = `${bgColor} p-4 rounded-lg shadow-lg`;
-                
-                let htmlContent = `<p class="font-bold text-lg ${titleColor} mb-2">${title}</p>`;
-                if (Array.isArray(content)) {
-                    // This handles the 11-point analysis
-                    htmlContent += '<p class="font-semibold text-fuchsia-200 mb-1 mt-3">System-Link Analysis:</p><ul class="list-disc pl-5 text-sm space-y-1 text-fuchsia-100">';
-                    content.forEach(item => {
-                        const parts = item.split(': ', 2);
-                        const expert = parts[0].trim();
-                        const insight = parts.length > 1 ? parts[1].trim() : '';
-                        htmlContent += `<li><strong class="text-white">${expert}:</strong> ${insight}</li>`;
-                    });
-                    htmlContent += '</ul>';
-                } else {
-                    // This handles single text blocks (User Event, Synthesis, Error)
-                    htmlContent += `<p class="text-sm text-fuchsia-100 whitespace-pre-wrap">${content}</p>`;
-                }
-                
-                entry.innerHTML = htmlContent;
-                logContent.appendChild(entry);
-                simulationLog.scrollTop = simulationLog.scrollHeight; // Auto-scroll
-            };
-
-            // --- SURVEY LOGIC (Initial Setup) ---
-            const surveyQuestions = [
-                { id: 'vitality', label: '1. Vitality: How high is your physical energy today?' },
-                { id: 'cognition', label: '2. Cognition: How clear and focused is your mind?' },
-                { id: 'emotion', label: '3. Emotion: How positive and stable do you feel?' },
-                { id: 'adaptability', label: '4. Adaptability: How well are you handling change?' },
-                { id: 'meaning', label: '5. Meaning: How connected do you feel to your purpose?' }
-            ];
-
-            const renderSurveySliders = () => {
-                surveySlidersContainer.innerHTML = '';
-                surveyQuestions.forEach(q => {
-                    const div = document.createElement('div');
-                    div.innerHTML = `
-                        <label for="${q.id}Slider" class="block font-semibold text-stone-800 mb-1">${q.label} <span id="${q.id}Value" class="font-bold text-fuchsia-400">5</span></label>
-                        <input id="${q.id}Slider" type="range" min="1" max="10" value="5" class="w-full h-2 bg-stone-700 rounded-lg appearance-none cursor-pointer accent-fuchsia-600">
-                    `;
-                    surveySlidersContainer.appendChild(div);
-
-                    const slider = document.getElementById(`${q.id}Slider`);
-                    const valueSpan = document.getElementById(`${q.id}Value`);
-                    
-                    slider.addEventListener('input', (e) => {
-                        valueSpan.textContent = e.target.value;
-                    });
-                });
-            };
-
-            renderSurveySliders();
-            surveyModal.classList.remove('hidden');
-
-            submitSurveyBtn.addEventListener('click', () => {
-                const newData = surveyQuestions.map(q => 
-                    parseInt(document.getElementById(`${q.id}Slider`).value, 10)
-                );
-                
-                systemStateData = newData;
-                systemChart.data.datasets[0].data = systemStateData;
-                systemChart.data.datasets[1].data = [0, 0, 0, 0, 0]; // Clear projection
-                systemChart.data.datasets[1].hidden = true;
-                systemChart.update();
-                
-                createLogEntry('system', 'System State Set', 'Your personal baseline has been initialized. Describe your first event below!');
-
-                surveyModal.classList.add('hidden');
-            });
-            
-            // --- MOBILE INPUT MODAL LOGIC ---
-            openInputModalBtn.addEventListener('click', () => {
-                // Transfer desktop text to modal input
-                eventInputModal.value = eventInput.value;
-                inputModal.classList.remove('hidden');
-            });
-
-            closeInputModalBtn.addEventListener('click', () => {
-                // Transfer modal text back to desktop input
-                eventInput.value = eventInputModal.value;
-                inputModal.classList.add('hidden');
-            });
-            
-            // --- GEMINI API CALL (SIMULATE) ---
-            async function callGeminiApi(currentState, eventText, isRecommendation = false) {
-                const simulationPrompt = isRecommendation
-                    ? `Act as a world-class system strategist. Your goal is to analyze the current Human System State Vector (${SYSTEM_LABELS.join(', ')}: ${currentState.join(', ')}) and determine the optimal, immediate intervention to raise the system's overall coherence and score. Provide a practical, single-paragraph recommendation for the user. Then, calculate the resulting new state vector (1-10) assuming the user successfully follows the advice.`
-                    : `Act as a highly intelligent, reflective system of 11 expert agents (Geneticist, Neuroscientist, Physiologist, Neurochemist, Psychoneuroimmunologist, Cognitive Psychologist, Developmental Psychologist, Educator, Sociologist, Economist/Entrepreneur, and Philosopher). The system's current state vector is (${SYSTEM_LABELS.join(', ')}: ${currentState.join(', ')}). A "life event" has just occurred: "${eventText}". 
-                       
-                       Your task is to perform a recursive, cross-system dialogue:
-                       1. For each of the 11 experts, provide a concise, single-sentence analysis of how this specific event impacts their domain.
-                       2. Provide a 'Conclusion & Synthesis' explaining the emergent behavior and the overall moral or teleological interpretation (Philosopher's synthesis).
-                       3. Calculate the resulting new state vector for the human system (Vitality, Cognition, Emotion, Adaptability, Meaning) on a 1-10 scale based on the event's systemic impact.
-
-                       Return the result strictly as a JSON object matching the SCHEMA.`;
-                       
-                const recommendationPrompt = `Analyze the current Human System State Vector (${SYSTEM_LABELS.join(', ')}: ${currentState.join(', ')}) to find the weakest links and maximum leverage points. Provide a practical, 3-point action plan (a Recommendation) to optimize the system. Then, calculate the resulting new state vector (1-10) assuming the user successfully follows the advice. Return the result strictly as a JSON object matching the SCHEMA.`;
-
-
-                // --- VERCEL SERVERLESS ENDPOINT ---
-                const endpoint = isRecommendation ? '/api/simulate' : '/api/simulate';
-
-                const apiKey = ""; 
-
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            prompt: isRecommendation ? recommendationPrompt : simulationPrompt,
-                            isRecommendation: isRecommendation,
-                            currentState: currentState,
-                            eventText: eventText 
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errorBody = await response.text();
-                        throw new Error(`API request failed with status ${response.status}: ${errorBody.substring(0, 100)}`);
-                    }
-
-                    const result = await response.json();
-                    return result;
-
-                } catch (error) {
-                    console.error("Gemini API Call Error:", error);
-                    return { error: error.message };
-                }
-            }
-
-
-            // --- SIMULATE BUTTON HANDLER ---
+            // --- Event Handlers ---
             runAiCycleBtn.addEventListener('click', async () => {
-                const currentEvent = eventInput.value.trim();
-                if (currentEvent.length < 10) {
-                    createLogEntry('error', 'Input Required', 'Please describe the event in more detail (at least 10 characters) before running the simulation.');
+                const eventText = eventInput.value.trim();
+                if (!eventText) {
+                    alert('Please describe an event before running the simulation.');
                     return;
                 }
                 
-                // Reset chart to current state (removing any prior recommendation projection)
-                systemChart.data.datasets[1].hidden = true; 
-                systemChart.update();
-
                 runAiCycleBtn.disabled = true;
                 cycleLoader.classList.remove('hidden');
                 cycleBtnText.textContent = 'Simulating...';
-
-                // 1. Log the user's event
-                createLogEntry('user', 'Your Event', currentEvent);
-
-                // 2. Call the AI
-                const result = await callGeminiApi(systemStateData, currentEvent, false);
+                initialLog.classList.add('hidden');
                 
-                // 3. Process Result
-                if (result.error) {
-                    createLogEntry('error', 'Simulation Error', `Could not contact the AI simulation network. (Details: ${result.error})`);
-                } else if (result.analysis && result.conclusionSynthesis && result.newState) {
+                // User input log entry
+                const userEntry = document.createElement('div');
+                userEntry.className = 'p-3 bg-[#4a346e] rounded-lg border-r-4 border-[#F15BB5] text-gray-200';
+                userEntry.innerHTML = `<p class="font-semibold text-[#F15BB5] mb-1">Your Event:</p><p>${escapeHTML(eventText)}</p>`;
+                logEntries.appendChild(userEntry);
+
+                // AI log placeholder
+                const aiEntry = document.createElement('div');
+                aiEntry.className = 'p-3 bg-[#2a1b3d] rounded-lg border-l-4 border-[#9B5DE0]';
+                aiEntry.innerHTML = `<p class="font-semibold text-[#9B5DE0] mb-2">System Response:</p><div class="space-y-1 text-sm text-gray-400 italic">Analyzing event across 11 subsystems...</div>`;
+                logEntries.appendChild(aiEntry);
+
+                simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
+
+                const currentData = systemChart.data.datasets[0].data;
+                const currentState = {
+                    meaning: currentData[0],
+                    vitality: currentData[1],
+                    cognition: currentData[2],
+                    emotion: currentData[3],
+                    adaptability: currentData[4]
+                };
+                
+                const payload = { eventText, currentState, type: 'simulate' };
+
+                try {
+                    const result = await callApi(SIMULATE_ENDPOINT, payload);
+                    const { analysis, conclusionSynthesis, newState } = result;
+
+                    // 1. Format the 11-Point Analysis
+                    let analysisHtml = `<p class="font-semibold text-[#9B5DE0] mb-2">System Response:</p><ul class="list-disc list-inside space-y-2 mb-4 text-gray-300">`;
                     
-                    // Log the detailed 11-point analysis
-                    createLogEntry('ai', 'System Dynamics Report', result.analysis);
+                    Object.keys(analysis).forEach(agent => {
+                        // Dynamically assign titles (e.g., Geneticist)
+                        analysisHtml += `<li class="text-sm"><strong class="text-[#F15BB5]">${agent.replace(/([A-Z])/g, ' $1').trim()}:</strong> ${escapeHTML(analysis[agent])}</li>`;
+                    });
+                    
+                    analysisHtml += `</ul>`;
 
-                    // Log the synthesis
-                    createLogEntry('ai', 'Conclusion & Synthesis', result.conclusionSynthesis);
+                    // 2. Add the Conclusion/Synthesis
+                    analysisHtml += `<div class="mt-4 pt-3 border-t border-[#4a346e]"><p class="font-bold text-[#F15BB5] mb-1">Conclusion & Synthesis:</p><p class="text-gray-200 text-sm">${escapeHTML(conclusionSynthesis)}</p></div>`;
+                    
+                    aiEntry.innerHTML = analysisHtml;
 
-                    // Update the chart state
+                    // 3. Update the Chart
                     const newData = [
-                        result.newState.vitality,
-                        result.newState.cognition,
-                        result.newState.emotion,
-                        result.newState.adaptability,
-                        result.newState.meaning
+                        Math.max(1, Math.min(10, newState.meaning)),
+                        Math.max(1, Math.min(10, newState.vitality)),
+                        Math.max(1, Math.min(10, newState.cognition)),
+                        Math.max(1, Math.min(10, newState.emotion)),
+                        Math.max(1, Math.min(10, newState.adaptability))
                     ];
-                    systemStateData = newData;
-                    systemChart.data.datasets[0].data = systemStateData;
-                    systemChart.update();
                     
-                    eventInput.value = ''; // Clear input after successful run
-                } else {
-                    createLogEntry('error', 'Simulation Error', 'Received unexpected data from the server. Check Vercel logs.');
-                }
+                    systemChart.data.datasets[0].data = newData;
+                    systemChart.data.datasets[1].data = newData;
+                    systemChart.data.datasets[1].hidden = true; // Hide projected state after event simulation
+                    systemChart.update();
 
-                runAiCycleBtn.disabled = false;
-                cycleLoader.classList.add('hidden');
-                cycleBtnText.textContent = '✨ Simulate Event';
+                } catch (error) {
+                    aiEntry.innerHTML = `<p class="font-semibold text-red-500">Simulation Error</p><p>Could not contact the AI simulation network. (Details: ${escapeHTML(error.message)})</p>`;
+                } finally {
+                    runAiCycleBtn.disabled = false;
+                    cycleLoader.classList.add('hidden');
+                    cycleBtnText.textContent = '🧠 Simulate Event';
+                    eventInput.value = ''; // Clear input after simulation
+                    simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
+                }
             });
 
-            // --- RECOMMENDATION BUTTON HANDLER ---
-            getRecommendationBtn.addEventListener('click', async () => {
-                getRecommendationBtn.disabled = true;
+            runRecommendationBtn.addEventListener('click', async () => {
+                runRecommendationBtn.disabled = true;
                 recommendationLoader.classList.remove('hidden');
                 recommendationBtnText.textContent = 'Analyzing...';
+                initialLog.classList.add('hidden');
+
+                const aiEntry = document.createElement('div');
+                aiEntry.className = 'p-3 bg-[#2a1b3d] rounded-lg border-l-4 border-[#9B5DE0]';
+                aiEntry.innerHTML = `<p class="font-semibold text-[#9B5DE0] mb-2">System Recommendation:</p><div class="space-y-1 text-sm text-gray-400 italic">Analyzing current state for optimization...</div>`;
+                logEntries.appendChild(aiEntry);
+
+                simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
                 
-                // Clear any prior event text
-                eventInput.value = '';
-                eventInputModal.value = '';
+                const currentData = systemChart.data.datasets[0].data;
+                const currentState = {
+                    meaning: currentData[0],
+                    vitality: currentData[1],
+                    cognition: currentData[2],
+                    emotion: currentData[3],
+                    adaptability: currentData[4]
+                };
+                
+                const payload = { currentState, type: 'recommend' };
 
-                // 1. Call the AI
-                const result = await callGeminiApi(systemStateData, 'N/A', true);
+                try {
+                    const result = await callApi(RECOMMEND_ENDPOINT, payload);
+                    const { recommendation, newState } = result;
 
-                // 2. Process Result
-                if (result.error) {
-                    createLogEntry('error', 'Recommendation Error', `Could not contact the AI simulation network. (Details: ${result.error})`);
-                } else if (result.recommendation && result.newState) {
+                    let recommendationHtml = `<p class="font-semibold text-[#9B5DE0] mb-2">System Recommendation:</p><p class="text-gray-300 mb-4">${escapeHTML(recommendation)}</p><p class="text-xs italic text-[#F15BB5]">Chart shows projected state if this recommendation is implemented.</p>`;
+                    aiEntry.innerHTML = recommendationHtml;
                     
-                    // Log the recommendation
-                    createLogEntry('recommendation', 'System Optimization Recommendation', result.recommendation);
-
-                    // Update the chart with the PROJECTED state
-                    const projectedData = [
-                        result.newState.vitality,
-                        result.newState.cognition,
-                        result.newState.emotion,
-                        result.newState.adaptability,
-                        result.newState.meaning
+                    const newData = [
+                        Math.max(1, Math.min(10, newState.meaning)),
+                        Math.max(1, Math.min(10, newState.vitality)),
+                        Math.max(1, Math.min(10, newState.cognition)),
+                        Math.max(1, Math.min(10, newState.emotion)),
+                        Math.max(1, Math.min(10, newState.adaptability))
                     ];
                     
-                    // Show projected data on the second dataset
-                    systemChart.data.datasets[1].data = projectedData;
+                    // Update Projected State Dataset
+                    systemChart.data.datasets[1].data = newData;
                     systemChart.data.datasets[1].hidden = false;
                     systemChart.update();
-                    
-                } else {
-                    createLogEntry('error', 'Recommendation Error', 'Received unexpected data from the server. Check Vercel logs.');
-                }
 
-                getRecommendationBtn.disabled = false;
-                recommendationLoader.classList.add('hidden');
-                recommendationBtnText.textContent = '💡 Get Recommendation';
+                } catch (error) {
+                    aiEntry.innerHTML = `<p class="font-semibold text-red-500">Recommendation Error</p><p>Could not contact the AI simulation network. (Details: ${escapeHTML(error.message)})</p>`;
+                } finally {
+                    runRecommendationBtn.disabled = false;
+                    recommendationLoader.classList.add('hidden');
+                    recommendationBtnText.textContent = '💡 Get Recommendation';
+                    simulationLogContainer.scrollTop = simulationLogContainer.scrollHeight;
+                }
             });
 
         });
