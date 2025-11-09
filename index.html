@@ -31,7 +31,46 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             margin: 0 auto;
         }
         .collapsible-section {
-            transition: opacity 0.25s ease;
+            will-change: height, opacity, transform;
+        }
+        .focus-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 9, 26, 0.65);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 30;
+            backdrop-filter: blur(2px);
+        }
+        .focus-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #eventInputSection {
+            transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+        }
+        #eventInputSection.focused-card {
+            transform: translateY(-6px);
+            box-shadow: 0 25px 60px -20px rgba(241, 91, 181, 0.65);
+            border-color: rgba(241, 91, 181, 0.75) !important;
+        }
+        .cta-press {
+            animation: ctaPress 0.45s ease;
+        }
+        @keyframes ctaPress {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 10px 25px rgba(155, 93, 224, 0.45);
+            }
+            40% {
+                transform: scale(0.97);
+                box-shadow: 0 6px 18px rgba(241, 91, 181, 0.35);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 10px 25px rgba(155, 93, 224, 0.45);
+            }
         }
         @media (min-width: 768px) {
             .chart-container {
@@ -50,6 +89,16 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             justify-content: center;
             align-items: center;
             z-index: 50;
+            opacity: 1;
+            transition: opacity 0.4s ease;
+        }
+        .modal-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-overlay.fade-out .modal-content {
+            transform: translateY(-24px);
+            opacity: 0;
         }
         .modal-content {
             background: #1f0f35;
@@ -61,6 +110,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             box-shadow: 0 10px 25px rgba(155, 93, 224, 0.5);
             max-height: 90vh;
             overflow-y: auto;
+            transition: transform 0.4s ease, opacity 0.4s ease;
         }
         .hidden {
             display: none;
@@ -155,6 +205,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
         </div>
     </main>
 
+    <div id="inputFocusOverlay" class="focus-overlay"></div>
+
     <!-- Initial State Survey Modal -->
     <div id="surveyModal" class="modal-overlay">
         <div class="modal-content">
@@ -211,15 +263,124 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             const eventInputSection = document.getElementById('eventInputSection');
 
             const collapsibleSections = [systemStateSection, simulationLogContainer].filter(Boolean);
+            collapsibleSections.forEach(section => {
+                section.dataset.state = 'expanded';
+                section.dataset.animating = 'false';
+                section.setAttribute('aria-hidden', 'false');
+            });
             let visibilityLockActive = false;
             let visibilityLockTimeout = null;
 
+            const collapseSection = (section) => {
+                if (!section || section.dataset.animating === 'true' || section.dataset.state === 'collapsed') return;
+
+                section.dataset.animating = 'true';
+                section.dataset.state = 'collapsing';
+                section.setAttribute('aria-hidden', 'true');
+
+                const startHeight = section.scrollHeight;
+                section.style.transition = 'none';
+                section.style.height = `${startHeight}px`;
+                section.style.opacity = '1';
+                section.style.transform = 'translateY(0)';
+                section.offsetHeight;
+
+                section.style.transition = 'height 0.35s ease, opacity 0.35s ease, transform 0.35s ease';
+                section.style.height = '0px';
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(-12px)';
+
+                let collapseFallback;
+                const handleTransitionEnd = (event) => {
+                    if (event.propertyName !== 'height') return;
+                    clearTimeout(collapseFallback);
+                    section.style.display = 'none';
+                    section.style.height = '';
+                    section.style.opacity = '';
+                    section.style.transform = '';
+                    section.style.transition = '';
+                    section.classList.add('hidden');
+                    section.dataset.state = 'collapsed';
+                    section.dataset.animating = 'false';
+                    section.removeEventListener('transitionend', handleTransitionEnd);
+                };
+
+                collapseFallback = setTimeout(() => {
+                    handleTransitionEnd({ propertyName: 'height' });
+                }, 500);
+
+                section.addEventListener('transitionend', handleTransitionEnd);
+            };
+
+            const expandSection = (section) => {
+                if (!section || section.dataset.animating === 'true' || section.dataset.state === 'expanded') return;
+
+                section.dataset.animating = 'true';
+                section.dataset.state = 'expanding';
+                section.classList.remove('hidden');
+                section.style.display = 'block';
+
+                const targetHeight = section.scrollHeight || 1;
+
+                section.style.transition = 'none';
+                section.style.height = '0px';
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(12px)';
+                section.offsetHeight;
+
+                section.style.transition = 'height 0.4s ease, opacity 0.4s ease, transform 0.4s ease';
+                section.style.height = `${targetHeight}px`;
+                section.style.opacity = '1';
+                section.style.transform = 'translateY(0)';
+
+                let expandFallback;
+                const handleTransitionEnd = (event) => {
+                    if (event.propertyName !== 'height') return;
+                    clearTimeout(expandFallback);
+                    section.style.display = '';
+                    section.style.height = '';
+                    section.style.opacity = '';
+                    section.style.transform = '';
+                    section.style.transition = '';
+                    section.dataset.state = 'expanded';
+                    section.dataset.animating = 'false';
+                    section.setAttribute('aria-hidden', 'false');
+                    section.removeEventListener('transitionend', handleTransitionEnd);
+                };
+
+                expandFallback = setTimeout(() => {
+                    handleTransitionEnd({ propertyName: 'height' });
+                }, 550);
+
+                section.addEventListener('transitionend', handleTransitionEnd);
+            };
+
             const showCollapsibleSections = () => {
-                collapsibleSections.forEach(section => section.classList.remove('hidden'));
+                collapsibleSections.forEach(expandSection);
             };
 
             const hideCollapsibleSections = () => {
-                collapsibleSections.forEach(section => section.classList.add('hidden'));
+                collapsibleSections.forEach(collapseSection);
+            };
+
+            const inputFocusOverlay = document.getElementById('inputFocusOverlay');
+
+            const enterInputFocusMode = () => {
+                if (inputFocusOverlay) {
+                    inputFocusOverlay.classList.add('active');
+                }
+                if (eventInputSection) {
+                    eventInputSection.classList.add('focused-card');
+                }
+            };
+
+            const leaveInputFocusMode = () => {
+                if (inputFocusOverlay) {
+                    inputFocusOverlay.classList.remove('active');
+                }
+                if (eventInputSection) {
+                    eventInputSection.classList.remove('focused-card');
+                }
             };
 
             const isEventInputProminent = () => {
@@ -239,6 +400,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             };
 
             const temporarilyShowSections = (duration = 1200) => {
+                leaveInputFocusMode();
                 showCollapsibleSections();
                 visibilityLockActive = true;
                 if (visibilityLockTimeout) {
@@ -246,6 +408,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 }
                 visibilityLockTimeout = setTimeout(() => {
                     visibilityLockActive = false;
+                    visibilityLockTimeout = null;
                     updateSectionVisibility();
                 }, duration);
             };
@@ -256,14 +419,36 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             eventInput.addEventListener('focus', () => {
                 if (visibilityLockTimeout) {
                     clearTimeout(visibilityLockTimeout);
+                    visibilityLockTimeout = null;
                 }
                 visibilityLockActive = false;
+                enterInputFocusMode();
                 hideCollapsibleSections();
+                if (eventInputSection) {
+                    requestAnimationFrame(() => {
+                        eventInputSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    });
+                }
             });
 
             eventInput.addEventListener('blur', () => {
+                leaveInputFocusMode();
                 if (!visibilityLockActive) {
-                    updateSectionVisibility();
+                    temporarilyShowSections(900);
+                }
+            });
+
+            if (inputFocusOverlay) {
+                inputFocusOverlay.addEventListener('click', () => {
+                    temporarilyShowSections(900);
+                    eventInput.blur();
+                });
+            }
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && document.activeElement === eventInput) {
+                    temporarilyShowSections(900);
+                    eventInput.blur();
                 }
             });
 
@@ -294,6 +479,9 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             });
 
             submitSurveyBtn.addEventListener('click', () => {
+                submitSurveyBtn.classList.add('cta-press');
+                setTimeout(() => submitSurveyBtn.classList.remove('cta-press'), 450);
+
                 const newData = [
                     parseInt(sliders.vitality.value, 10),
                     parseInt(sliders.cognition.value, 10),
@@ -301,16 +489,23 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     parseInt(sliders.adaptability.value, 10),
                     parseInt(sliders.meaning.value, 10)
                 ];
-                
+
                 systemChart.data.datasets[0].data = newData;
                 systemChart.data.datasets[1].data = newData;
                 systemChart.data.datasets[1].hidden = true;
                 systemChart.update();
-                
-                surveyModal.classList.add('hidden');
+
+                surveyModal.classList.add('fade-out');
+                surveyModal.setAttribute('aria-hidden', 'true');
+                setTimeout(() => {
+                    surveyModal.classList.add('hidden');
+                    surveyModal.classList.remove('fade-out');
+                }, 420);
+
                 initialLog.classList.remove('hidden');
                 initialLog.innerHTML = `<p class="text-gray-400 italic">Initial state set. Describe an event and click 'Simulate Event' to begin the dynamic dialogue.</p>`;
             });
+
 
 
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -444,8 +639,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     return;
                 }
 
-                eventInput.blur();
                 temporarilyShowSections();
+                eventInput.blur();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
                 runAiCycleBtn.disabled = true;
