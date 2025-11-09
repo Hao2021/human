@@ -36,16 +36,20 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
         .focus-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(19, 11, 36, 0.55);
+            background:
+                radial-gradient(circle at 15% 20%, rgba(241, 91, 181, 0.18), transparent 45%),
+                radial-gradient(circle at 85% 25%, rgba(155, 93, 224, 0.16), transparent 48%),
+                rgba(19, 11, 36, 0.62);
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.35s ease;
+            transition: opacity 0.35s ease, backdrop-filter 0.35s ease;
             z-index: 50;
-            backdrop-filter: blur(14px);
+            backdrop-filter: blur(0px);
         }
         .focus-overlay.active {
             opacity: 1;
             pointer-events: auto;
+            backdrop-filter: blur(18px);
         }
         #eventInputSection {
             position: relative;
@@ -53,23 +57,147 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1), box-shadow 0.45s cubic-bezier(0.33, 1, 0.68, 1), border-color 0.35s ease;
             padding: clamp(1.75rem, 2.5vw + 1rem, 2.75rem);
         }
+        #eventInputSection.modal-card {
+            padding: clamp(2.2rem, 3vw + 1.4rem, 3.1rem) clamp(2rem, 2.6vw + 1.4rem, 3rem);
+            background: linear-gradient(165deg, rgba(32, 17, 53, 0.96), rgba(27, 12, 47, 0.94));
+            box-shadow: 0 40px 120px rgba(9, 4, 24, 0.72);
+        }
+        #eventInputSection.modal-card textarea {
+            box-shadow: 0 18px 48px rgba(241, 91, 181, 0.28);
+        }
+        #eventInputSection.modal-card .button-row {
+            margin-top: 2.75rem;
+        }
+        #eventInputSection.modal-card .action-button {
+            box-shadow: 0 22px 40px -20px rgba(241, 91, 181, 0.55);
+        }
+        #eventInputSection.modal-card .action-button:last-child {
+            box-shadow: 0 22px 40px -20px rgba(155, 93, 224, 0.55);
+        }
         .modal-card {
             position: fixed !important;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.94);
+            transform: translate(-50%, calc(-50% + 28px)) scale(0.92);
             width: min(92vw, 760px);
             max-height: calc(90vh - 3rem);
             overflow-y: auto;
-            border-radius: 1.5rem;
-            box-shadow: 0 42px 120px rgba(16, 8, 32, 0.7);
+            border-radius: 1.6rem;
+            box-shadow: 0 46px 120px rgba(16, 8, 32, 0.75);
             z-index: 80;
             opacity: 0;
-            transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.35s ease;
+            transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1), opacity 0.35s ease, box-shadow 0.45s ease;
+            background: linear-gradient(155deg, rgba(31, 15, 53, 0.95), rgba(26, 12, 44, 0.98));
+        }
+        .modal-card::before {
+            content: '';
+            position: absolute;
+            inset: 1px;
+            border-radius: 1.55rem;
+            border: 1px solid rgba(241, 91, 181, 0.25);
+            background:
+                radial-gradient(circle at top, rgba(241, 91, 181, 0.12), transparent 52%),
+                radial-gradient(circle at bottom, rgba(155, 93, 224, 0.12), transparent 50%);
+            opacity: 0;
+            transform: translateY(16px) scale(0.96);
+            filter: blur(0px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            pointer-events: none;
+        }
+        .modal-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 1.6rem;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+            pointer-events: none;
         }
         .modal-card.modal-card-active {
             transform: translate(-50%, -50%) scale(1);
             opacity: 1;
+            box-shadow: 0 52px 140px rgba(12, 5, 28, 0.82);
+            animation: floatCard 8s ease-in-out infinite 0.6s;
+        }
+        .modal-card.modal-card-active::before {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        @keyframes floatCard {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                transform: translate(-50%, calc(-50% - 8px)) scale(1.01);
+            }
+        }
+        .modal-card.modal-card-log {
+            padding: clamp(2.4rem, 2.6vw + 1.6rem, 3.1rem) clamp(2.1rem, 2.4vw + 1.5rem, 3rem) clamp(2.2rem, 2.5vw + 1.4rem, 3rem);
+        }
+        .modal-card.modal-card-log > .flex {
+            margin-bottom: 1.75rem;
+            padding-right: 3.5rem;
+            align-items: center;
+        }
+        #simulationLogContainer.modal-card {
+            position: relative;
+            border: none;
+            max-height: calc(85vh - 3rem);
+        }
+        #simulationLogContainer.modal-card .log-close-button {
+            position: absolute;
+            top: 1.75rem;
+            right: 1.75rem;
+            opacity: 0.9;
+        }
+        #simulationLogContainer.modal-card .log-close-button:hover {
+            opacity: 1;
+        }
+        #simulationLogContainer.modal-card #logEntries {
+            max-height: none;
+        }
+        #simulationLogContainer.modal-card .log-processing {
+            background: linear-gradient(135deg, rgba(155, 93, 224, 0.16), rgba(241, 91, 181, 0.14));
+            animation: fadePulse 1.8s ease-in-out infinite;
+        }
+        @keyframes fadePulse {
+            0%, 100% {
+                box-shadow: inset 0 0 0 1px rgba(241, 91, 181, 0.3);
+                opacity: 0.85;
+            }
+            50% {
+                box-shadow: inset 0 0 0 1px rgba(241, 91, 181, 0.45);
+                opacity: 1;
+            }
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .log-spinner {
+            background: conic-gradient(from 45deg, rgba(241, 91, 181, 0.05), rgba(241, 91, 181, 0.55));
+        }
+        .log-processing.active {
+            display: flex;
+            animation-play-state: running;
+        }
+        .log-processing:not(.active) {
+            animation-play-state: paused;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .focus-overlay {
+                transition: opacity 0.2s ease;
+                backdrop-filter: none;
+            }
+            .modal-card {
+                transition: transform 0.25s ease, opacity 0.25s ease;
+            }
+            .modal-card.modal-card-active {
+                animation: none;
+            }
+            .log-processing {
+                animation: none !important;
+            }
         }
         .modal-placeholder {
             width: 100%;
@@ -458,7 +586,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 ensurePlaceholder(config);
                 activateOverlay();
 
-                config.element.classList.add('modal-card');
+                const typeClass = `modal-card-${type}`;
+                config.element.classList.add('modal-card', typeClass);
                 requestAnimationFrame(() => {
                     config.element.classList.add('modal-card-active');
                 });
@@ -485,8 +614,9 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
                 const element = config.element;
 
+                const typeClass = `modal-card-${type}`;
                 const finalize = () => {
-                    element.classList.remove('modal-card');
+                    element.classList.remove('modal-card', typeClass, 'modal-card-active');
                     element.removeEventListener('transitionend', handleTransitionEnd);
                     if (config.placeholder) {
                         config.placeholder.remove();
