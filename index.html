@@ -692,6 +692,64 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 log: { element: simulationLogContainer, placeholder: null }
             };
 
+            const wellnessFields = [
+                { key: 'hrvMs', element: document.getElementById('hrvInput'), label: 'HRV', suffix: 'ms' },
+                { key: 'sleepDurationHrs', element: document.getElementById('sleepDurationInput'), label: 'Time Slept', suffix: 'hrs' },
+                { key: 'deepSleepHrs', element: document.getElementById('deepSleepInput'), label: 'Deep Sleep', suffix: 'hrs' },
+                { key: 'remSleepHrs', element: document.getElementById('remSleepInput'), label: 'REM Sleep', suffix: 'hrs' },
+                { key: 'lightSleepHrs', element: document.getElementById('lightSleepInput'), label: 'Light Sleep', suffix: 'hrs' },
+                { key: 'restingHeartRateBpm', element: document.getElementById('restingHeartRateInput'), label: 'Resting HR', suffix: 'bpm' }
+            ];
+
+            const metricNumberFormatter = new Intl.NumberFormat('en-US', {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 0
+            });
+
+            const collectWellnessMetrics = () => {
+                const metrics = {};
+                const summaryEntries = [];
+
+                wellnessFields.forEach(({ key, element, label, suffix }) => {
+                    if (!element) {
+                        metrics[key] = null;
+                        return;
+                    }
+
+                    const rawValue = element.value.trim();
+                    if (rawValue === '') {
+                        metrics[key] = null;
+                        return;
+                    }
+
+                    const parsedValue = Number(rawValue);
+                    if (Number.isFinite(parsedValue)) {
+                        metrics[key] = parsedValue;
+                        const formatted = metricNumberFormatter.format(parsedValue);
+                        summaryEntries.push({
+                            label,
+                            display: suffix ? `${formatted} ${suffix}` : formatted
+                        });
+                    } else {
+                        metrics[key] = null;
+                    }
+                });
+
+                return { metrics, summaryEntries };
+            };
+
+            const buildWellnessSummaryMarkup = (entries) => {
+                if (!entries.length) {
+                    return '';
+                }
+
+                const listItems = entries.map(({ label, display }) =>
+                    `<li class="flex items-center justify-between gap-3"><span class="text-[#9B5DE0] font-medium">${escapeHTML(label)}</span><span class="text-gray-200">${escapeHTML(display)}</span></li>`
+                ).join('');
+
+                return `<div class="mt-3 rounded-lg bg-[#1f0f35] border border-[#9B5DE0]/40 p-3"><p class="text-sm font-semibold text-[#F15BB5] mb-2">Sleep &amp; Recovery Metrics</p><ul class="text-sm space-y-1">${listItems}</ul></div>`;
+            };
+
             const activeModalTypes = new Set();
             let preserveOverlayOnBlur = false;
 
@@ -791,6 +849,41 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 setTimeout(finalize, 520);
             };
 
+            const isInputModalOpen = () => {
+                return Boolean(modalConfigs.input.element && modalConfigs.input.element.classList.contains('modal-card'));
+            };
+
+            const ensureInputModalActive = ({ focus = false } = {}) => {
+                const config = modalConfigs.input;
+                if (!config || !config.element) {
+                    return;
+                }
+
+                if (!config.element.classList.contains('modal-card')) {
+                    openModal('input');
+                } else {
+                    activateOverlay();
+                    activeModalTypes.add('input');
+                    if (!config.element.classList.contains('modal-card-active')) {
+                        requestAnimationFrame(() => {
+                            config.element.classList.add('modal-card-active');
+                        });
+                    }
+                }
+
+                if (focus) {
+                    requestAnimationFrame(() => {
+                        if (document.activeElement !== eventInput) {
+                            try {
+                                eventInput.focus({ preventScroll: true });
+                            } catch (error) {
+                                eventInput.focus();
+                            }
+                        }
+                    });
+                }
+            };
+
             const openLogModal = (statusText = 'Analyzing event...') => {
                 if (logProcessingOverlay) {
                     logProcessingOverlay.classList.remove('hidden');
@@ -830,36 +923,19 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 closeModal('log');
             };
 
-            eventInput.addEventListener('pointerdown', () => {
-                if (!modalConfigs.input.element.classList.contains('modal-card')) {
-                    openModal('input');
+            eventInput.addEventListener('pointerdown', (event) => {
+                if (!isInputModalOpen()) {
+                    event.preventDefault();
+                    ensureInputModalActive({ focus: true });
                 }
-                requestAnimationFrame(() => {
-                    if (document.activeElement !== eventInput) {
-                        try {
-                            eventInput.focus({ preventScroll: true });
-                        } catch (error) {
-                            eventInput.focus();
-                        }
-                    }
-                });
             });
 
             eventInput.addEventListener('focus', () => {
-                openModal('input');
-                requestAnimationFrame(() => {
-                    if (document.activeElement !== eventInput) {
-                        try {
-                            eventInput.focus({ preventScroll: true });
-                        } catch (error) {
-                            eventInput.focus();
-                        }
-                    }
-                });
+                ensureInputModalActive();
             });
 
             eventInput.addEventListener('blur', () => {
-                if (modalConfigs.input.element.classList.contains('modal-card')) {
+                if (isInputModalOpen()) {
                     closeModal('input', { preserveOverlay: preserveOverlayOnBlur });
                 }
                 preserveOverlayOnBlur = false;
@@ -1161,6 +1237,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     return;
                 }
 
+                const { metrics: wellnessMetrics, summaryEntries: wellnessSummaryEntries } = collectWellnessMetrics();
+
                 preserveOverlayOnBlur = true;
                 eventInput.blur();
                 openLogModal('Analyzing event...');
@@ -1173,7 +1251,12 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 // User input log entry
                 const userEntry = document.createElement('div');
                 userEntry.className = 'p-3 bg-[#4a346e] rounded-lg border-r-4 border-[#F15BB5] text-gray-200';
-                userEntry.innerHTML = `<p class="font-semibold text-[#F15BB5] mb-1">Your Event:</p><p>${escapeHTML(eventText)}</p>`;
+                let userEntryContent = `<p class="font-semibold text-[#F15BB5] mb-1">Your Event:</p><p>${escapeHTML(eventText)}</p>`;
+                const wellnessSummaryMarkup = buildWellnessSummaryMarkup(wellnessSummaryEntries);
+                if (wellnessSummaryMarkup) {
+                    userEntryContent += wellnessSummaryMarkup;
+                }
+                userEntry.innerHTML = userEntryContent;
                 logEntries.appendChild(userEntry);
 
                 // AI log placeholder
@@ -1192,8 +1275,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     emotion: currentData[3],
                     adaptability: currentData[4]
                 };
-                
-                const payload = { eventText, currentState, type: 'simulate' };
+
+                const payload = { eventText, currentState, wellnessMetrics, type: 'simulate' };
 
                 try {
                     const result = await callApi(SIMULATE_ENDPOINT, payload);
