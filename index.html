@@ -33,7 +33,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
         .collapsible-section {
             will-change: height, opacity, transform;
         }
-        .focus-overlay {
+        .modal-backdrop {
             position: fixed;
             inset: 0;
             background:
@@ -43,10 +43,10 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.35s ease, backdrop-filter 0.35s ease;
-            z-index: 50;
+            z-index: 60;
             backdrop-filter: blur(0px);
         }
-        .focus-overlay.active {
+        .modal-backdrop.active {
             opacity: 1;
             pointer-events: auto;
             backdrop-filter: blur(18px);
@@ -244,7 +244,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             display: none;
         }
         @media (prefers-reduced-motion: reduce) {
-            .focus-overlay {
+            .modal-backdrop {
                 transition: opacity 0.2s ease;
                 backdrop-filter: none;
             }
@@ -606,8 +606,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 <textarea id="eventInput" class="w-full rounded-lg bg-[#1f0f35] text-gray-100 border border-[#9B5DE0]/50 focus:border-[#F15BB5] outline-none" rows="6" placeholder="Example: 'I received unexpected, harsh criticism at work, but later spent time in nature with my family.'"></textarea>
 
                 <div class="button-row flex flex-col md:flex-row gap-3 md:gap-4 mt-5 items-stretch">
-                    <button id="runAiCycleBtn" class="action-button flex-1 bg-[#F15BB5] text-white font-semibold rounded-lg shadow-lg shadow-[#F15BB5]/40 hover:bg-[#E04BA4] transition-colors flex items-center justify-center gap-2 disabled:opacity-75"
-                    >
+                    <button id="runAiCycleBtn" class="action-button flex-1 bg-[#F15BB5] text-white font-semibold rounded-lg shadow-lg shadow-[#F15BB5]/40 hover:bg-[#E04BA4] transition-colors flex items-center justify-center gap-2 disabled:opacity-75">
                         <span id="cycleBtnText">🧠 Simulate Event</span>
                         <svg id="cycleLoader" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -625,8 +624,6 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             </div>
         </div>
     </main>
-
-    <div id="inputFocusOverlay" class="focus-overlay"></div>
 
     <!-- Initial State Survey Modal -->
     <div id="surveyModal" class="modal-overlay">
@@ -682,7 +679,22 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             const eventInput = document.getElementById('eventInput');
             const eventInputSection = document.getElementById('eventInputSection');
 
-            const inputFocusOverlay = document.getElementById('inputFocusOverlay');
+            const modalBackdrop = (() => {
+                const existing = document.getElementById('modalBackdrop');
+                if (existing) {
+                    return existing;
+                }
+                const backdrop = document.createElement('div');
+                backdrop.id = 'modalBackdrop';
+                backdrop.className = 'modal-backdrop';
+                const surveyModalElement = document.getElementById('surveyModal');
+                if (surveyModalElement && surveyModalElement.parentNode) {
+                    surveyModalElement.parentNode.insertBefore(backdrop, surveyModalElement);
+                } else {
+                    document.body.appendChild(backdrop);
+                }
+                return backdrop;
+            })();
             const closeLogModalBtn = document.getElementById('closeLogModalBtn');
             const logProcessingOverlay = document.getElementById('logProcessingOverlay');
             const logProcessingText = document.getElementById('logProcessingText');
@@ -753,15 +765,15 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             const activeModalTypes = new Set();
 
             const activateOverlay = () => {
-                if (inputFocusOverlay) {
-                    inputFocusOverlay.classList.add('active');
+                if (modalBackdrop) {
+                    modalBackdrop.classList.add('active');
                 }
                 document.body.classList.add('modal-open');
             };
 
             const deactivateOverlay = () => {
-                if (inputFocusOverlay) {
-                    inputFocusOverlay.classList.remove('active');
+                if (modalBackdrop) {
+                    modalBackdrop.classList.remove('active');
                 }
                 document.body.classList.remove('modal-open');
             };
@@ -922,8 +934,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 ensureInputModalActive({ focus: true });
             });
 
-            if (inputFocusOverlay) {
-                inputFocusOverlay.addEventListener('click', () => {
+            if (modalBackdrop) {
+                modalBackdrop.addEventListener('click', () => {
                     if (activeModalTypes.has('log')) {
                         closeLogModal();
                     } else if (activeModalTypes.has('input')) {
