@@ -923,15 +923,14 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 closeModal('log');
             };
 
-            eventInput.addEventListener('pointerdown', (event) => {
+            eventInput.addEventListener('pointerdown', () => {
                 if (!isInputModalOpen()) {
-                    event.preventDefault();
                     ensureInputModalActive({ focus: true });
                 }
             });
 
             eventInput.addEventListener('focus', () => {
-                ensureInputModalActive();
+                ensureInputModalActive({ focus: true });
             });
 
             eventInput.addEventListener('blur', () => {
