@@ -13,6 +13,36 @@ const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025';
 // --- JSON Schemas ---
 
 // Schema for the 'simulate' action
+const CAUSAL_GRAPH_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+        "variables": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "id": { "type": "STRING" },
+                    "value": { "type": "NUMBER" },
+                    "baseline": { "type": "NUMBER" }
+                },
+                "required": ["id"]
+            }
+        },
+        "edges": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "from": { "type": "STRING" },
+                    "to": { "type": "STRING" },
+                    "weight": { "type": "NUMBER" }
+                },
+                "required": ["from", "to", "weight"]
+            }
+        }
+    }
+};
+
 const SIMULATION_SCHEMA = {
     type: "OBJECT",
     properties: {
@@ -45,7 +75,7 @@ const SIMULATION_SCHEMA = {
             },
             "required": ["vitality", "cognition", "emotion", "adaptability", "meaning"]
         },
-        "causalGraph": { "type": "OBJECT" },
+        "causalGraph": CAUSAL_GRAPH_SCHEMA,
         "attractor": { "type": "STRING" },
         "leverageUsed": { "type": "STRING" },
         "interventionsPlanned": {
@@ -72,7 +102,7 @@ const RECOMMENDATION_SCHEMA = {
             },
             "required": ["vitality", "cognition", "emotion", "adaptability", "meaning"]
         },
-        "causalGraph": { "type": "OBJECT" },
+        "causalGraph": CAUSAL_GRAPH_SCHEMA,
         "attractor": { "type": "STRING" },
         "leverageUsed": { "type": "STRING" },
         "interventionsPlanned": {
