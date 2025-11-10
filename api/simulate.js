@@ -73,6 +73,47 @@ const SYSTEM_PROMPT_BASE = `You are running a research simulation on human poten
 The system has 11 expert agents (Geneticist, Neuroscientist, Performance Physiologist, Neurochemist, Psychoneuroimmunologist, Cognitive Psychologist, Developmental Psychologist, Educator, Sociologist, Economist/Entrepreneur, Philosopher).
 The human system state is defined by 5 factors (Vitality, Cognition, Emotion, Adaptability, Meaning) rated 1-10.`;
 
+const WELLNESS_METRIC_LABELS = {
+    hrvMs: 'Heart Rate Variability (ms)',
+    sleepDurationHrs: 'Total Sleep Duration (hrs)',
+    deepSleepHrs: 'Deep Sleep (hrs)',
+    remSleepHrs: 'REM Sleep (hrs)',
+    lightSleepHrs: 'Light Sleep (hrs)',
+    restingHeartRateBpm: 'Resting Heart Rate (bpm)'
+};
+
+const sanitizeWellnessMetrics = (metrics) => {
+    if (!metrics || typeof metrics !== 'object') {
+        return null;
+    }
+
+    const sanitized = {};
+    let hasValues = false;
+
+    Object.keys(WELLNESS_METRIC_LABELS).forEach((key) => {
+        const value = Number(metrics[key]);
+        if (Number.isFinite(value)) {
+            sanitized[key] = value;
+            hasValues = true;
+        }
+    });
+
+    return hasValues ? sanitized : null;
+};
+
+const formatWellnessMetricsForPrompt = (metrics) => {
+    if (!metrics) {
+        return '';
+    }
+
+    return Object.entries(metrics)
+        .map(([key, value]) => {
+            const label = WELLNESS_METRIC_LABELS[key] || key;
+            return `${label}: ${value}`;
+        })
+        .join(', ');
+};
+
 // --- Serverless Function Handler ---
 module.exports = async (req, res) => {
     // Vercel/Netlify auto-parses the body for POST requests
@@ -81,8 +122,9 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { eventText, currentState, type } = req.body;
-        
+        const { eventText, currentState, type, wellnessMetrics } = req.body;
+        const sanitizedWellnessMetrics = sanitizeWellnessMetrics(wellnessMetrics);
+
         let userQuery, responseSchema, systemPrompt;
 
         if (type === 'simulate') {
@@ -92,8 +134,11 @@ module.exports = async (req, res) => {
             2. Simulate the immediate impact of this event across ALL 11 expert subsystems, providing a concise, 1-sentence analysis for each.
             3. Provide a single "Conclusion & Synthesis" summarizing the emergent system behavior.
             4. Generate a *new, plausible state vector* (1-10) that results from the event and systemic adaptation.`;
-            
-            userQuery = `Current State: ${JSON.stringify(currentState)}
+
+            const wellnessSummary = formatWellnessMetricsForPrompt(sanitizedWellnessMetrics);
+            const metricsLine = wellnessSummary ? `Sleep & Recovery Metrics: ${wellnessSummary}\n` : '';
+
+            userQuery = `${metricsLine}Current State: ${JSON.stringify(currentState)}
             Life Event to Simulate: "${eventText}"
             Simulate the full system response to this event.`;
             responseSchema = SIMULATION_SCHEMA;
