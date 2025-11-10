@@ -751,7 +751,6 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
             };
 
             const activeModalTypes = new Set();
-            let preserveOverlayOnBlur = false;
 
             const activateOverlay = () => {
                 if (inputFocusOverlay) {
@@ -884,6 +883,16 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 }
             };
 
+            const closeInputModal = (options = {}) => {
+                if (document.activeElement === eventInput) {
+                    eventInput.blur();
+                }
+
+                if (isInputModalOpen()) {
+                    closeModal('input', options);
+                }
+            };
+
             const openLogModal = (statusText = 'Analyzing event...') => {
                 if (logProcessingOverlay) {
                     logProcessingOverlay.classList.remove('hidden');
@@ -923,21 +932,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 closeModal('log');
             };
 
-            eventInput.addEventListener('pointerdown', () => {
-                if (!isInputModalOpen()) {
-                    ensureInputModalActive({ focus: true });
-                }
-            });
-
             eventInput.addEventListener('focus', () => {
                 ensureInputModalActive({ focus: true });
-            });
-
-            eventInput.addEventListener('blur', () => {
-                if (isInputModalOpen()) {
-                    closeModal('input', { preserveOverlay: preserveOverlayOnBlur });
-                }
-                preserveOverlayOnBlur = false;
             });
 
             if (inputFocusOverlay) {
@@ -945,7 +941,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     if (activeModalTypes.has('log')) {
                         closeLogModal();
                     } else if (activeModalTypes.has('input')) {
-                        eventInput.blur();
+                        closeInputModal();
                     }
                 });
             }
@@ -960,8 +956,8 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                 if (event.key === 'Escape') {
                     if (activeModalTypes.has('log')) {
                         closeLogModal();
-                    } else if (document.activeElement === eventInput) {
-                        eventInput.blur();
+                    } else if (activeModalTypes.has('input')) {
+                        closeInputModal();
                     }
                 }
             });
@@ -1171,10 +1167,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
                     }
                 };
 
-                if (document.activeElement === eventInput) {
-                    preserveOverlayOnBlur = true;
-                    eventInput.blur();
-                }
+                closeInputModal({ preserveOverlay: true });
 
                 openLogModal('Preparing recommendation...');
 
@@ -1238,8 +1231,7 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
                 const { metrics: wellnessMetrics, summaryEntries: wellnessSummaryEntries } = collectWellnessMetrics();
 
-                preserveOverlayOnBlur = true;
-                eventInput.blur();
+                closeInputModal({ preserveOverlay: true });
                 openLogModal('Analyzing event...');
 
                 runAiCycleBtn.disabled = true;
