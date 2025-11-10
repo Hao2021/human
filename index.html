@@ -1289,7 +1289,40 @@ CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
                     // 2. Add the Conclusion/Synthesis
                     analysisHtml += `<div class="mt-4 pt-3 border-t border-[#4a346e]"><p class="font-bold text-[#F15BB5] mb-1">Conclusion & Synthesis:</p><p class="text-gray-200 text-sm">${escapeHTML(conclusionSynthesis)}</p></div>`;
-                    
+
+                    const loopsStructured = Array.isArray(result.loopsDetectedStructured)
+                        ? result.loopsDetectedStructured
+                        : Array.isArray(result.loopsDetected)
+                            ? result.loopsDetected
+                            : [];
+
+                    if (loopsStructured.length) {
+                        const loopItems = loopsStructured.map((loop, index) => {
+                            const typeLabel = loop && loop.type ? `${loop.type} Loop` : `Loop ${index + 1}`;
+                            const dominanceValue = typeof loop?.dominance === 'number' && Number.isFinite(loop.dominance)
+                                ? `${Math.round(loop.dominance)}%`
+                                : '—';
+                            const rawChain = loop?.chain
+                                || (Array.isArray(loop?.nodes) && loop.nodes.length
+                                    ? `${loop.nodes.join(' → ')}${loop.nodes[0] ? ` → ${loop.nodes[0]}` : ''}`
+                                    : '');
+                            const chainText = rawChain ? rawChain.replace(/\s+→\s+$/u, '') : 'Sequence unavailable';
+
+                            return `<li class="flex flex-col gap-1 rounded-lg bg-[#1f0f35]/60 border border-[#9B5DE0]/20 p-3">
+                                <div class="flex items-center justify-between gap-3 text-xs uppercase tracking-wide text-[#9B5DE0]">
+                                    <span>${escapeHTML(typeLabel)}</span>
+                                    <span class="text-[#F15BB5]">Dominance: ${escapeHTML(dominanceValue)}</span>
+                                </div>
+                                <p class="text-sm text-gray-200">${escapeHTML(chainText)}</p>
+                            </li>`;
+                        }).join('');
+
+                        analysisHtml += `<div class="mt-4 pt-3 border-t border-[#4a346e]">
+                            <p class="font-bold text-[#F15BB5] mb-2">Detected Feedback Loops</p>
+                            <ul class="space-y-2">${loopItems}</ul>
+                        </div>`;
+                    }
+
                     aiEntry.innerHTML = analysisHtml;
 
                     const recommendationFooter = document.createElement('div');
